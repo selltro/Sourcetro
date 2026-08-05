@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#16283a" />
     <meta
       name="description"
-      content="SourceTro helps resellers move every item from source to sold with photos, measurements, AI listing help, inventory, orders, shipping, and analytics."
+      content="SourceTro helps resellers source smarter, list faster, stay organized, and sell more—from source to sold."
     />
     <title>SourceTro — From Source to Sold</title>
     <link rel="icon" href="assets/sourcetro-mark.svg" type="image/svg+xml" />
@@ -17,20 +17,21 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=4" />
+    <link rel="stylesheet" href="styles.css?v=5" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand-block">
           <button class="brand" data-route="dashboard" aria-label="SourceTro dashboard">
-            <span>SourceTr</span><span class="lens-o" aria-hidden="true"><i></i></span>
+            <span>SourceTr</span><span class="lens-o" aria-hidden="true"><i></i></span><sup class="brand-tm">™</sup>
           </button>
           <p>FROM SOURCE TO SOLD</p>
         </div>
 
         <nav class="side-nav" aria-label="Main navigation">
           <button class="nav-item active" data-route="dashboard"><span>⌂</span> Dashboard</button>
+          <button class="nav-item scan-nav" data-route="source-scan"><span>◎</span> Smart Source Scan</button>
           <button class="nav-item nav-primary" data-route="new-listing"><span>＋</span> New listing</button>
           <button class="nav-item" data-route="inventory"><span>▦</span> Inventory</button>
           <button class="nav-item" data-route="orders"><span>▣</span> Orders</button>
@@ -56,7 +57,7 @@
       <main class="main-area">
         <header class="topbar">
           <button class="icon-button menu-button" id="menuButton" aria-label="Open navigation">☰</button>
-          <div class="mobile-brand" aria-label="SourceTro"><span>SourceTr</span><span class="lens-o"><i></i></span></div>
+          <div class="mobile-brand" aria-label="SourceTro"><span>SourceTr</span><span class="lens-o"><i></i></span><sup class="brand-tm">™</sup></div>
           <div class="topbar-actions">
             <button class="voice-top" id="voiceQuickAction"><span>●</span> Talk to Tro</button>
             <button class="icon-button notification" aria-label="Notifications">♧<i></i></button>
@@ -70,9 +71,9 @@
 
     <div class="mobile-nav" aria-label="Mobile navigation">
       <button data-route="dashboard" class="active"><span>⌂</span>Home</button>
-      <button data-route="inventory"><span>▦</span>Inventory</button>
+      <button data-route="source-scan"><span>◎</span>Scan</button>
       <button data-route="new-listing" class="mobile-add" aria-label="Create a listing">＋</button>
-      <button data-route="orders"><span>▣</span>Orders</button>
+      <button data-route="inventory"><span>▦</span>Inventory</button>
       <button id="mobileTro"><span>◉</span>Tro</button>
     </div>
 
@@ -83,10 +84,10 @@
         <button class="icon-button" id="closeTro" aria-label="Close Tro">×</button>
       </header>
       <div class="tro-messages" id="troMessages">
-        <div class="message tro-message">Hi Nydia! What can I help you list, price, organize, or ship today?</div>
+        <div class="message tro-message">Hi Nydia! I’m Tro—your Trusted Resale Operator. What can I help you source, price, list, organize, or ship today?</div>
       </div>
       <div class="tro-suggestions">
-        <button>Help me price an item</button>
+        <button>Is this item worth buying?</button>
         <button>What should I list today?</button>
         <button>Write an eBay title</button>
       </div>
@@ -98,6 +99,6 @@
     </aside>
 
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=5"></script>
   </body>
 </html>
