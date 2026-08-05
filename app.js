@@ -835,10 +835,13 @@ async function analyzeSourceScan() {
     const response = await fetch(`${SOURCETRO_API_URL}/analyze`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "X-SourceTro-Key": state.aiOwnerKey,
+        "Content-Type": "text/plain;charset=UTF-8",
       },
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
       body: JSON.stringify({
+        ownerKey: state.aiOwnerKey,
         mode: scan.journey === "Thinking of buying" ? "sourcing" : "owned",
         purchaseCost: scan.purchasePrice || null,
         targetProfit: state.troFit.minimumProfit || null,
@@ -862,7 +865,9 @@ async function analyzeSourceScan() {
     setTroState("success", "Live item analysis ready.", 2600);
     showToast("Tro identified the item and created your SEO listing draft.");
   } catch (error) {
-    state.aiError = error?.message || "Live AI could not connect. Please try again.";
+    state.aiError = /failed to fetch/i.test(error?.message || "")
+      ? "SourceTro could not reach its secure AI connection. Refresh once and try again."
+      : (error?.message || "Live AI could not connect. Please try again.");
     setTroState("ready", "Ready when you are.");
     showToast(state.aiError);
   } finally {
@@ -2146,7 +2151,7 @@ window.addEventListener("hashchange", () => {
 });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=11").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=12").catch(() => {}));
 }
 
 render();
