@@ -157,6 +157,7 @@ const state = {
   sourceScan: { ...sourceScanDefaults },
   sourcePhoto: null,
   sourceResult: null,
+  lastAIAnalysis: null,
   troFit: loadJSON("sourcetro_trofit", { ...troFitDefaults }),
   batchItems: [],
   scanHistory: loadJSON("sourcetro_scan_history", []),
@@ -856,6 +857,7 @@ function buildSourceResult(aiAnalysis = null) {
   const research = aiAnalysis?.research || {};
   const evaluation = aiAnalysis?.evaluation || {};
   const aiListing = aiAnalysis?.listing || null;
+  if (aiAnalysis) state.lastAIAnalysis = aiAnalysis;
 
   if (usableAIValue(identification.brand)) scan.brand = identification.brand.trim();
   if (usableAIValue(identification.item_type)) scan.itemName = identification.item_type.trim();
@@ -1083,6 +1085,7 @@ function lockLiveAI() {
 function useDemoScan() {
   state.sourceScan = { ...sourceScanDefaults, itemName: "721 high rise skinny jeans size 16W", brand: "Levi's", purchasePrice: "12", condition: "Pre-owned - Excellent" };
   state.sourceResult = null;
+  state.lastAIAnalysis = null;
   buildSourceResult();
   render();
   showToast("Demo planning estimate loaded. Your real photo uses live Tro AI.");
@@ -1093,6 +1096,7 @@ function resetSourceScan() {
   state.sourcePhoto = null;
   state.sourceScan = { ...sourceScanDefaults };
   state.sourceResult = null;
+  state.lastAIAnalysis = null;
 }
 
 function saveTroFit() {
@@ -1843,6 +1847,7 @@ document.addEventListener("click", (event) => {
   if (journey) {
     state.sourceScan.journey = journey;
     state.sourceResult = null;
+    state.lastAIAnalysis = null;
     render();
     return;
   }
@@ -1905,6 +1910,7 @@ document.addEventListener("click", (event) => {
     if (item) {
       state.sourcePhoto = { ...item, fromBatch: true };
       state.sourceResult = null;
+      state.lastAIAnalysis = null;
       render();
       window.scrollTo({ top: 0, behavior: "smooth" });
       showToast("Batch photo moved into Smart Scan. Add the store price or item details.");
@@ -1972,7 +1978,10 @@ document.addEventListener("input", (event) => {
   const scanBound = event.target.dataset.scanBind;
   if (scanBound) {
     state.sourceScan[scanBound] = event.target.value;
-    state.sourceResult = null;
+    if (!isLocalPriceField(scanBound)) {
+      state.sourceResult = null;
+      state.lastAIAnalysis = null;
+    }
     refreshResearchLaunch();
   }
   const feedbackBound = event.target.dataset.feedbackBind;
@@ -2002,6 +2011,10 @@ function refreshResearchLaunch() {
   }
 }
 
+function isLocalPriceField(name) {
+  return ["purchasePrice", "shippingCost", "feeRate", "verifiedLow", "verifiedMedian", "verifiedHigh"].includes(name);
+}
+
 function refreshSeoReview() {
   const review = seoListingReview();
   document.querySelectorAll("[data-seo-score]").forEach((node) => { node.textContent = review.score; node.closest(".score-ring")?.style.setProperty("--score", review.score); });
@@ -2015,7 +2028,14 @@ document.addEventListener("change", (event) => {
   const scanBound = event.target.dataset.scanBind;
   if (scanBound) {
     state.sourceScan[scanBound] = event.target.value;
-    state.sourceResult = null;
+    if (isLocalPriceField(scanBound) && state.lastAIAnalysis) {
+      buildSourceResult(state.lastAIAnalysis);
+      render();
+      showToast("Price and profit updated without another AI charge.");
+    } else {
+      state.sourceResult = null;
+      state.lastAIAnalysis = null;
+    }
     refreshResearchLaunch();
   }
   const troFitBound = event.target.dataset.trofitBind;
@@ -2040,6 +2060,7 @@ document.addEventListener("change", (event) => {
     if (state.sourcePhoto?.url?.startsWith("blob:") && !state.sourcePhoto.fromBatch) URL.revokeObjectURL(state.sourcePhoto.url);
     state.sourcePhoto = { name: file.name, url: URL.createObjectURL(file) };
     state.sourceResult = null;
+    state.lastAIAnalysis = null;
     render();
     setTroState("listening", "Photo received — add the store price.", 1800);
     showToast("Photo added. Add the store price, then ask Tro to check it.");
