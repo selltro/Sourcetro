@@ -1,6 +1,10 @@
 const page = document.querySelector("#page");
 const toast = document.querySelector("#toast");
 
+const SOURCETRO_API_URL = "https://sourcetro-personal-api.selltro.workers.dev";
+const OWNER_KEY_STORAGE = "sourcetro_owner_key";
+const AI_VERIFIED_STORAGE = "sourcetro_ai_verified";
+
 const listingDefaults = {
   category: "Women's Clothing",
   itemType: "",
@@ -26,12 +30,19 @@ const listingDefaults = {
   itemCost: "",
   sourceLocation: "",
   purchaseDate: "",
+  researchQuery: "",
+  comparisonLow: "",
+  comparisonHigh: "",
+  sourceDecision: "",
+  bestMarketplace: "",
+  expectedDays: "",
   storageBin: "",
   sku: "",
   marketplaces: ["eBay"],
 };
 
 const sourceScanDefaults = {
+  journey: "Thinking of buying",
   itemName: "",
   brand: "",
   category: "Women's Clothing",
@@ -41,6 +52,10 @@ const sourceScanDefaults = {
   feeRate: "14",
   marketplace: "eBay",
   barcode: "",
+  sourceLocation: "",
+  verifiedLow: "",
+  verifiedMedian: "",
+  verifiedHigh: "",
 };
 
 const troFitDefaults = {
@@ -152,7 +167,28 @@ const state = {
   feedbackVotes: loadJSON("sourcetro_feedback_votes", {}),
   feedbackDraft: { category: "I have an idea", message: "", contact: "" },
   feedbackScreenshot: null,
+  aiOwnerKey: loadSessionValue(OWNER_KEY_STORAGE),
+  aiStatus: loadSessionValue(AI_VERIFIED_STORAGE) === "true" ? "connected" : (loadSessionValue(OWNER_KEY_STORAGE) ? "ready" : "locked"),
+  aiBusy: false,
+  aiError: "",
 };
+
+function loadSessionValue(key) {
+  try {
+    return sessionStorage.getItem(key) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveSessionValue(key, value) {
+  try {
+    if (value) sessionStorage.setItem(key, value);
+    else sessionStorage.removeItem(key);
+  } catch {
+    // The app still works if private browsing blocks session storage.
+  }
+}
 
 function loadJSON(key, fallback) {
   try {
@@ -468,7 +504,7 @@ function personalDashboardView() {
         <div class="panel-header"><div><p class="eyebrow">Make it real</p><h2>Your connection checklist</h2></div></div>
         <div class="connection-checklist">
           <div class="complete"><span>✓</span><div><strong>Personal workspace</strong><small>Your scans and inventory stay together.</small></div></div>
-          <div><span>1</span><div><strong>Connect live AI</strong><small>Real photo identification and listing writing.</small></div><b>Next</b></div>
+          <div class="${state.aiStatus === "connected" ? "complete" : ""}"><span>${state.aiStatus === "connected" ? "✓" : "1"}</span><div><strong>${state.aiStatus === "connected" ? "Live AI connected" : "Unlock live AI"}</strong><small>Real photo identification and listing writing.</small></div>${state.aiStatus === "connected" ? "" : '<button data-route="source-scan">Open</button>'}</div>
           <div><span>2</span><div><strong>Connect your eBay</strong><small>Create drafts, publish, and receive sales.</small></div><b>Next</b></div>
           <div><span>3</span><div><strong>Test five real items</strong><small>Then adjust the process to fit how you work.</small></div></div>
         </div>
@@ -549,13 +585,41 @@ function scoreFactor(title, copy) {
   return `<article><span>✓</span><strong>${title}</strong><small>${copy}</small></article>`;
 }
 
+function aiConnectionMarkup() {
+  if (state.aiStatus === "connected") {
+    return `<div class="ai-connection-card connected">
+      <span class="ai-connection-icon">✓</span>
+      <div><strong>Live Tro AI is connected</strong><small>Your OpenAI key stays encrypted in Cloudflare. This browser tab holds only your separate owner key.</small></div>
+      <button class="button ghost" data-action="lock-live-ai">Lock</button>
+    </div>`;
+  }
+
+  if (state.aiOwnerKey) {
+    return `<div class="ai-connection-card ready">
+      <span class="ai-connection-icon">◎</span>
+      <div><strong>Owner key is ready</strong><small>Your first live item analysis will verify the connection.</small></div>
+      <button class="button ghost" data-action="lock-live-ai">Change</button>
+    </div>`;
+  }
+
+  return `<div class="ai-connection-card ${state.aiError ? "error" : ""}">
+    <span class="ai-connection-icon">🔒</span>
+    <div class="ai-key-copy"><strong>Unlock live Tro AI on this device</strong><small>Paste the separate <b>SourceTro Owner Key</b> you saved in Edge—not your OpenAI API key.</small>${state.aiError ? `<em>${esc(state.aiError)}</em>` : ""}</div>
+    <div class="ai-key-entry"><input id="sourceTroOwnerKey" type="password" autocomplete="current-password" placeholder="SourceTro Owner Key" aria-label="SourceTro Owner Key" /><button class="button" data-action="unlock-live-ai">Unlock</button></div>
+  </div>`;
+}
+
 function sourceScanView() {
   const scan = state.sourceScan;
   page.innerHTML = `
-    ${routeTitle("Smart Source Scan", "Snap it, identify it, compare the numbers, and decide whether it is worth buying.", '<button class="button secondary" data-action="reset-scan">Start over</button>')}
+    ${routeTitle("Resale Workbench", "Show Tro the item once. Research it, evaluate it, and carry it into an SEO-ready listing.", '<button class="button secondary" data-action="reset-scan">Start over</button>')}
     <div class="source-scan-layout">
       <section class="panel source-scan-form">
-        <div class="source-step"><span>1</span><div><h2>Snap the item</h2><p class="muted">Take one clear photo. Add the label, model, or brand in the item details when you can.</p></div></div>
+        <div class="journey-choice" role="group" aria-label="What do you want to do with this item?">
+          ${["Thinking of buying", "I already own it"].map((choice) => `<button class="${scan.journey === choice ? "active" : ""}" data-scan-journey="${choice}"><span>${choice === "Thinking of buying" ? "◎" : "＋"}</span><strong>${choice}</strong><small>${choice === "Thinking of buying" ? "Research before spending" : "Research, price, and list it"}</small></button>`).join("")}
+        </div>
+        ${aiConnectionMarkup()}
+        <div class="source-step"><span>1</span><div><h2>Show Tro the item</h2><p class="muted">Take one clear photo. Add the label, model, or brand when you can.</p></div></div>
         <div class="upload-zone source-upload ${state.sourcePhoto ? "has-photo" : ""}">
           <input type="file" id="sourcePhotoInput" accept="image/*" capture="environment" aria-label="Take or upload a sourcing photo" />
           ${state.sourcePhoto
@@ -563,24 +627,36 @@ function sourceScanView() {
             : `<div><span class="upload-icon">◎</span><h3>Take a picture or choose a photo</h3><p class="muted">Tro will use this as the starting point for identification.</p><span class="button secondary">Choose photo</span></div>`}
         </div>
 
-        <div class="source-step details-heading"><span>2</span><div><h2>Add what you know</h2><p class="muted">Even one or two details can make the price comparison more accurate.</p></div></div>
+        <div class="source-step details-heading"><span>2</span><div><h2>Add what you know</h2><p class="muted">Tro turns these details into stronger comparison searches and listing keywords.</p></div></div>
         <div class="form-grid">
           ${scanField("itemName", "What is it?", 'placeholder="Example: Levi’s 721 jeans"')}
           ${scanField("brand", "Brand", 'placeholder="Example: Levi’s"')}
           <div class="field barcode-field"><label>Barcode, UPC, or model number (optional)</label><div><input data-scan-bind="barcode" value="${esc(scan.barcode)}" inputmode="numeric" placeholder="Scan or type the number" /><button class="button secondary" data-action="barcode-preview">Look up</button></div></div>
           <div class="field"><label>Category</label><select data-scan-bind="category">${["Women's Clothing", "Men's Clothing", "Kids' Clothing", "Shoes", "Handbags", "Accessories", "Electronics", "Collectibles", "Home", "Other"].map((x) => `<option ${scan.category === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
           <div class="field"><label>Condition</label><select data-scan-bind="condition">${["New with tags", "New without tags", "Pre-owned - Excellent", "Pre-owned - Good", "Pre-owned - Fair"].map((x) => `<option ${scan.condition === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
-          ${scanField("purchasePrice", "Store price", 'type="number" min="0" step=".01" inputmode="decimal" placeholder="12.00"')}
+          ${scanField("purchasePrice", scan.journey === "Thinking of buying" ? "Store price" : "What you paid", 'type="number" min="0" step=".01" inputmode="decimal" placeholder="12.00"')}
+          ${scanField("sourceLocation", "Where did you find it?", 'placeholder="Example: Goodwill Boston Road, yard sale, my closet"')}
           <div class="field"><label>Compare on</label><select data-scan-bind="marketplace">${["eBay", "Poshmark", "Mercari", "Depop", "All marketplaces"].map((x) => `<option ${scan.marketplace === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
           ${scanField("shippingCost", "Estimated shipping cost", 'type="number" min="0" step=".01" inputmode="decimal"')}
           ${scanField("feeRate", "Estimated marketplace fee %", 'type="number" min="0" max="40" step=".1" inputmode="decimal"')}
         </div>
 
+        <div class="source-step details-heading"><span>3</span><div><h2>Check real comparisons</h2><p class="muted">Open a live sold search, then enter the range you see. Tro will use your verified numbers instead of a planning estimate.</p></div></div>
+        <div class="research-launch" data-research-launch>
+          <div><small>Tro’s comparison search</small><strong data-research-query>${esc(buildResearchQuery(scan)) || "Add an item or brand first"}</strong></div>
+          <a class="button secondary ${buildResearchQuery(scan) ? "" : "disabled"}" data-research-link href="${ebaySoldSearchUrl(scan)}" target="_blank" rel="noopener">Search eBay sold items ↗</a>
+        </div>
+        <div class="form-grid verified-range">
+          ${scanField("verifiedLow", "Lowest similar sold", 'type="number" min="0" step=".01" inputmode="decimal" placeholder="Optional"')}
+          ${scanField("verifiedMedian", "Typical similar sold", 'type="number" min="0" step=".01" inputmode="decimal" placeholder="Optional"')}
+          ${scanField("verifiedHigh", "Highest similar sold", 'type="number" min="0" step=".01" inputmode="decimal" placeholder="Optional"')}
+        </div>
+
         <div class="scan-actions">
-          <button class="button large" data-action="analyze-source">◎ Identify & check value</button>
+          <button class="button large" data-action="analyze-source" ${state.aiBusy ? "disabled" : ""}>${state.aiBusy ? "Tro is analyzing…" : "✦ Analyze photo & build my listing"}</button>
           <button class="button ghost" data-action="demo-source">Try a demo scan</button>
         </div>
-        <p class="data-note"><strong>Prototype note:</strong> This screen is ready for live image recognition and sold-listing search. Until those secure services are connected, Tro shows a clearly labeled planning estimate—not live web data.</p>
+        <p class="data-note"><strong>Live AI is ready:</strong> Tro can identify the photographed item, flag details to verify, write an SEO title and description, build comparison words, and carry the work into your listing. Until eBay is connected, you still confirm sold prices from the live eBay search before relying on the profit estimate.</p>
       </section>
 
       <aside class="source-results" id="sourceResults">
@@ -610,6 +686,21 @@ function scanField(name, label, attrs = "") {
   return `<div class="field"><label>${label}</label><input data-scan-bind="${name}" value="${esc(state.sourceScan[name])}" ${attrs} /></div>`;
 }
 
+function buildResearchQuery(scan = state.sourceScan) {
+  if (![scan.brand, scan.itemName, scan.barcode].some(Boolean)) return "";
+  return [scan.brand, scan.itemName, scan.barcode, scan.category?.replace(/Women's |Men's |Kids' /, ""), scan.condition?.includes("New") ? "new" : "preowned"]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function ebaySoldSearchUrl(scan = state.sourceScan) {
+  const query = buildResearchQuery(scan);
+  if (!query) return "#";
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_Sold=1&LH_Complete=1`;
+}
+
 function batchQueueMarkup() {
   if (!state.batchItems.length) return "";
   return `<div class="batch-queue"><div><strong>${state.batchItems.length} item${state.batchItems.length === 1 ? "" : "s"} in your SourceTro queue</strong><small>Photos are ready for identification. Add an item name or use each one to start a listing.</small></div><div class="batch-thumbs">${state.batchItems.slice(0, 8).map((item, index) => `<button data-batch-item="${index}" title="Use ${esc(item.name)}"><img src="${item.url}" alt="Batch item ${index + 1}" /><span>${index + 1}</span></button>`).join("")}</div></div>`;
@@ -619,8 +710,8 @@ function sourceWaitingMarkup() {
   return `<div class="source-waiting">
     <span class="tro-orb" data-mood="ready"><i></i></span>
     <p class="eyebrow">Tro is ready</p>
-    <h2>Should you buy it?</h2>
-    <p>After the scan, Tro will organize the item identity, expected sold-price range, demand, fees, shipping, profit, ROI, and maximum recommended purchase price.</p>
+    <h2>${state.sourceScan.journey === "Thinking of buying" ? "Should you buy it?" : "What is the best way to sell it?"}</h2>
+    <p>Tro will organize the comparison evidence, value, demand, fees, profit, best marketplace, SEO keywords, and the next step.</p>
     <div class="decision-preview"><span>Great Buy</span><span>Consider</span><span>Buy below $___</span><span>Pass</span></div>
   </div>`;
 }
@@ -628,22 +719,28 @@ function sourceWaitingMarkup() {
 function sourceResultMarkup(result) {
   return `<div class="source-result-card">
     <div class="decision-banner ${result.tone}">
-      <small>Tro’s sourcing recommendation</small>
+      <small>${state.sourceScan.journey === "Thinking of buying" ? "Tro’s sourcing recommendation" : "Tro’s selling recommendation"}</small>
       <strong>${result.recommendation}</strong>
       <p>${result.reason}</p>
     </div>
     <div class="identified-item">
       <span class="result-lens">◎</span>
-      <div><small>Likely item · ${result.confidence}% planning confidence</small><h2>${esc(result.identifiedItem)}</h2><p>${esc(result.category)} · ${esc(result.condition)}</p></div>
+      <div><small>${result.aiAssisted ? "Live AI photo analysis" : "Planning estimate"} · ${result.confidence}% confidence</small><h2>${esc(result.identifiedItem)}</h2><p>${esc(result.category)} · ${esc(result.condition)}</p></div>
     </div>
+    ${result.aiAssisted && result.aiListing ? `<div class="live-ai-summary">
+      <div class="comparison-heading"><h3>Tro’s SEO listing draft</h3><span>Live AI</span></div>
+      <strong>${esc(result.aiListing.seo_title)}</strong>
+      <p>${esc(result.aiExplanation || result.aiListing.description)}</p>
+      ${result.detailsToVerify?.length ? `<small><b>Verify:</b> ${esc(result.detailsToVerify.join(" · "))}</small>` : ""}
+    </div>` : ""}
     <div class="personal-score">
       <div class="score-ring" style="--score:${result.troScore}"><strong>${result.troScore}</strong><small>/100</small></div>
       <div><small>Personal TroScore™</small><h3>${result.fitLabel}</h3><p>${result.fitReason}</p></div>
     </div>
     <div class="sold-range">
-      <small>Estimated resale range</small>
+      <small>${result.verifiedComps ? "Your verified sold range" : "Planning resale range"}</small>
       <strong>${money(result.soldLow)}–${money(result.soldHigh)}</strong>
-      <span>Typical value ${money(result.median)} · ${result.marketplace}</span>
+      <span>Typical value ${money(result.median)} · ${result.marketplace} · ${result.verifiedComps ? "entered from live research" : "not live data"}</span>
     </div>
     <div class="result-metrics">
       ${resultMetric("Estimated profit", money(result.profit))}
@@ -663,11 +760,15 @@ function sourceResultMarkup(result) {
       <article class="risk-${result.riskTone}"><small>Authenticity Risk Review</small><strong>${result.riskLevel}</strong><p>${result.riskCopy}</p></article>
     </div>
     <div class="comparison-preview">
-      <div class="comparison-heading"><h3>Sold-comparison preview</h3><span>Sample—not live</span></div>
-      ${result.sampleComps.map((comp) => `<div><span><strong>${esc(comp.title)}</strong><small>${comp.marketplace} · ${comp.condition}</small></span><b>${money(comp.price)}</b></div>`).join("")}
+      <div class="comparison-heading"><h3>Comparison evidence</h3><span>${result.verifiedComps ? "Verified by you" : "Research ready"}</span></div>
+      <div class="research-evidence"><small>Search words</small><strong>${esc(result.researchQuery)}</strong></div>
+      ${result.verifiedComps
+        ? `<div><span><strong>Lowest comparable sold</strong><small>Entered from your live research</small></span><b>${money(result.soldLow)}</b></div><div><span><strong>Typical comparable sold</strong><small>Used for Tro’s calculations</small></span><b>${money(result.median)}</b></div><div><span><strong>Highest comparable sold</strong><small>Use only for truly similar condition</small></span><b>${money(result.soldHigh)}</b></div>`
+        : result.sampleComps.map((comp) => `<div><span><strong>${esc(comp.title)}</strong><small>${comp.marketplace} · ${comp.condition}</small></span><b>${money(comp.price)}</b></div>`).join("")}
+      <a class="button secondary full research-again" href="${result.researchUrl}" target="_blank" rel="noopener">Open live sold comparisons ↗</a>
     </div>
     <div class="result-actions">
-      <button class="button full" data-action="scan-to-listing">I bought it—create listing</button>
+      <button class="button full" data-action="scan-to-listing">${state.sourceScan.journey === "Thinking of buying" ? "I bought it—create my listing" : "Create my SEO listing"}</button>
       <button class="button secondary full" data-action="save-scan">Save this decision</button>
     </div>
   </div>`;
@@ -677,30 +778,113 @@ function resultMetric(label, value) {
   return `<div><small>${label}</small><strong>${value}</strong></div>`;
 }
 
-function analyzeSourceScan() {
+async function analyzeSourceScan() {
   const scan = state.sourceScan;
   if (!state.sourcePhoto && !scan.itemName.trim()) {
     showToast("Add a photo or tell Tro what the item is first.");
     return;
   }
 
-  setTroState("thinking", "Identifying and comparing…");
-  showToast("Tro is checking the item and running the numbers…");
-  setTimeout(() => {
+  if (!state.aiOwnerKey) {
+    state.aiError = "Enter your SourceTro Owner Key to use the secure AI connection.";
+    render();
+    document.querySelector("#sourceTroOwnerKey")?.focus();
+    showToast("Unlock live Tro AI first. Use the separate owner key you saved in Edge.");
+    return;
+  }
+
+  state.aiBusy = true;
+  state.aiError = "";
+  setTroState("thinking", "Looking closely at your item…");
+  render();
+
+  try {
+    const images = state.sourcePhoto ? [await imageUrlForAI(state.sourcePhoto.url)] : [];
+    const verifiedPrices = [scan.verifiedLow, scan.verifiedMedian, scan.verifiedHigh].filter(Boolean).join(" / ");
+    const notes = [
+      scan.brand && `Seller-entered brand: ${scan.brand}`,
+      scan.itemName && `Seller-entered item: ${scan.itemName}`,
+      scan.category && `Selected category: ${scan.category}`,
+      scan.condition && `Seller-entered condition: ${scan.condition}`,
+      scan.barcode && `Barcode or model clue: ${scan.barcode}`,
+      scan.sourceLocation && `Sourcing place: ${scan.sourceLocation}`,
+      verifiedPrices && `Seller-verified sold prices (low / typical / high): ${verifiedPrices}`,
+    ].filter(Boolean).join("\n");
+
+    const response = await fetch(`${SOURCETRO_API_URL}/analyze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-SourceTro-Key": state.aiOwnerKey,
+      },
+      body: JSON.stringify({
+        mode: scan.journey === "Thinking of buying" ? "sourcing" : "owned",
+        purchaseCost: scan.purchasePrice || null,
+        targetProfit: state.troFit.minimumProfit || null,
+        notes,
+        images,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401) {
+        lockLiveAI();
+        throw new Error("That owner key was not accepted. Copy the SourceTro Owner Key from Edge and try again.");
+      }
+      throw new Error(payload.error || "Tro could not analyze this item. Please try again.");
+    }
+
+    state.aiStatus = "connected";
+    saveSessionValue(AI_VERIFIED_STORAGE, "true");
+    buildSourceResult(payload.analysis);
+    setTroState("success", "Live item analysis ready.", 2600);
+    showToast("Tro identified the item and created your SEO listing draft.");
+  } catch (error) {
+    state.aiError = error?.message || "Live AI could not connect. Please try again.";
+    setTroState("ready", "Ready when you are.");
+    showToast(state.aiError);
+  } finally {
+    state.aiBusy = false;
+    render();
+  }
+}
+
+function buildSourceResult(aiAnalysis = null) {
+  const scan = state.sourceScan;
+  const identification = aiAnalysis?.identification || {};
+  const research = aiAnalysis?.research || {};
+  const evaluation = aiAnalysis?.evaluation || {};
+  const aiListing = aiAnalysis?.listing || null;
+
+  if (usableAIValue(identification.brand)) scan.brand = identification.brand.trim();
+  if (usableAIValue(identification.item_type)) scan.itemName = identification.item_type.trim();
+  if (usableAIValue(identification.category)) scan.category = normalizeCategory(identification.category, scan.category);
+  if (usableAIValue(identification.condition)) scan.condition = normalizeCondition(identification.condition, scan.condition);
+
     const itemName = scan.itemName.trim() || state.sourcePhoto?.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ") || "Resale item";
     const knownBrand = /levi|nike|coach|patagonia|north face|ralph|lululemon|carhartt|free people/i.test(`${scan.brand} ${itemName}`);
     const categoryBases = { "Women's Clothing": 34, "Men's Clothing": 36, "Kids' Clothing": 22, Shoes: 48, Handbags: 62, Accessories: 28, Electronics: 72, Collectibles: 46, Home: 38, Other: 32 };
     const conditionFactors = { "New with tags": 1.2, "New without tags": 1.1, "Pre-owned - Excellent": 1, "Pre-owned - Good": .88, "Pre-owned - Fair": .64 };
     const base = categoryBases[scan.category] || 34;
-    const median = Math.max(10, Math.round((base + (knownBrand ? 18 : 0)) * (conditionFactors[scan.condition] || .88)));
-    const soldLow = Math.max(6, Math.round(median * .78));
-    const soldHigh = Math.round(median * 1.22);
+    const planningMedian = Math.max(10, Math.round((base + (knownBrand ? 18 : 0)) * (conditionFactors[scan.condition] || .88)));
+    const verifiedMedian = Number(scan.verifiedMedian || 0);
+    const verifiedLow = Number(scan.verifiedLow || 0);
+    const verifiedHigh = Number(scan.verifiedHigh || 0);
+    const verifiedComps = Boolean(verifiedMedian || (verifiedLow && verifiedHigh));
+    const median = verifiedMedian || (verifiedLow && verifiedHigh ? Math.round((verifiedLow + verifiedHigh) / 2) : planningMedian);
+    const soldLow = verifiedLow || Math.max(6, Math.round(median * .78));
+    const soldHigh = verifiedHigh || Math.round(median * 1.22);
     const purchasePrice = Number(scan.purchasePrice || 0);
     const shipping = Number(scan.shippingCost || 0);
     const fees = Math.round((median * Number(scan.feeRate || 0) / 100) * 100) / 100;
     const profit = Math.round((median - purchasePrice - shipping - fees) * 100) / 100;
     const roi = purchasePrice > 0 ? Math.round((profit / purchasePrice) * 100) : 0;
-    const sellThrough = Math.min(88, Math.max(28, 49 + (knownBrand ? 24 : 0) + (scan.condition.includes("Excellent") || scan.condition.includes("New") ? 7 : 0)));
+    const aiDemand = String(evaluation.demand || "").toLowerCase();
+    const demandBase = /high|strong|popular|fast/.test(aiDemand) ? 72 : /low|weak|slow|limited/.test(aiDemand) ? 34 : 52;
+    const sellThrough = aiAnalysis
+      ? Math.min(88, Math.max(28, demandBase + (knownBrand ? 8 : 0)))
+      : Math.min(88, Math.max(28, 49 + (knownBrand ? 24 : 0) + (scan.condition.includes("Excellent") || scan.condition.includes("New") ? 7 : 0)));
     const days = sellThrough >= 70 ? 21 : sellThrough >= 50 ? 38 : 62;
     const targetProfit = Math.max(Number(state.troFit.minimumProfit || 0), 8);
     const maxBuy = Math.max(0, Math.floor(median - fees - shipping - targetProfit));
@@ -722,10 +906,13 @@ function analyzeSourceScan() {
     const riskCopy = elevatedRisk ? "Check serial details, stitching, hardware, seller history, and professional authentication before relying on the brand name." : "Still verify labels, condition, model details, and seller information before buying.";
     const fitLabel = troScore >= 80 ? "Excellent fit for your goals" : troScore >= 65 ? "Good fit with a few checks" : troScore >= 45 ? "Borderline for your goals" : "Poor fit for your goals";
     const fitReason = `This score uses your ${money(targetProfit)} minimum profit, ${money(budget)} monthly sourcing budget, ${state.troFit.sellSpeed.toLowerCase()} preference, and current inventory space.`;
-    let recommendation = "PASS";
+    let recommendation = scan.journey === "I already own it" ? `LIST NEAR ${money(median)}` : "PASS";
     let tone = "pass";
     let reason = `At ${money(purchasePrice)}, the expected margin is too thin for the time and risk.`;
-    if (!scan.purchasePrice) {
+    if (scan.journey === "I already own it") {
+      tone = profit >= targetProfit ? "buy" : profit > 0 ? "consider" : "caution";
+      reason = `Start near ${money(median)}, consider offers around ${money(Math.round(median * .9))}, and use ${bestMarketplace} first. Tro will carry the research into your SEO listing.`;
+    } else if (!scan.purchasePrice) {
       recommendation = `BUY ONLY BELOW ${money(maxBuy)}`;
       tone = "caution";
       reason = "Enter the store price for a personal buy-or-pass answer. This is Tro’s current maximum target cost.";
@@ -748,7 +935,7 @@ function analyzeSourceScan() {
       category: scan.category,
       condition: scan.condition,
       marketplace: scan.marketplace,
-      confidence: state.sourcePhoto ? (knownBrand ? 86 : 74) : 64,
+      confidence: confidencePercent(identification.confidence, state.sourcePhoto ? (knownBrand ? 86 : 74) : 64),
       soldLow,
       soldHigh,
       median,
@@ -771,7 +958,21 @@ function analyzeSourceScan() {
       openingOffer,
       riskLevel,
       riskTone,
-      riskCopy,
+      riskCopy: aiAnalysis
+        ? [...(identification.visible_flaws || []), ...(aiAnalysis.warnings || [])].filter(Boolean).slice(0, 3).join(" ") || riskCopy
+        : riskCopy,
+      verifiedComps,
+      researchQuery: usableAIValue(research.ebay_sold_search) ? research.ebay_sold_search : buildResearchQuery(scan),
+      researchUrl: usableAIValue(research.ebay_sold_search)
+        ? `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(research.ebay_sold_search)}&LH_Sold=1&LH_Complete=1`
+        : ebaySoldSearchUrl(scan),
+      sourceLocation: scan.sourceLocation,
+      aiAssisted: Boolean(aiAnalysis),
+      aiListing,
+      aiIdentification: identification,
+      detailsToVerify: research.details_to_verify || [],
+      aiWarnings: aiAnalysis?.warnings || [],
+      aiExplanation: evaluation.explanation || "",
       scoreFactors: [
         { label: "Profit fit", value: profitFactor },
         { label: "Cash fit", value: cashFactor },
@@ -785,16 +986,106 @@ function analyzeSourceScan() {
         { title: `${scan.brand || "Comparable"} ${scan.category}`, marketplace: "Mercari", condition: "Excellent", price: soldHigh },
       ],
     };
+    return state.sourceResult;
+}
+
+function usableAIValue(value) {
+  const text = String(value || "").trim();
+  return Boolean(text && !/^(unknown|unclear|not visible|not provided|n\/a|none)$/i.test(text));
+}
+
+function normalizeCategory(value, fallback) {
+  const category = String(value || "").toLowerCase();
+  if (category.includes("shoe") || category.includes("sneaker") || category.includes("boot")) return "Shoes";
+  if (category.includes("handbag") || category.includes("purse") || category.includes("tote")) return "Handbags";
+  if (category.includes("accessor")) return "Accessories";
+  if (category.includes("electronic")) return "Electronics";
+  if (category.includes("collect")) return "Collectibles";
+  if (category.includes("home") || category.includes("house")) return "Home";
+  if (category.includes("women")) return "Women's Clothing";
+  if (/\bmen\b|male/.test(category)) return "Men's Clothing";
+  if (category.includes("kid") || category.includes("child") || category.includes("baby")) return "Kids' Clothing";
+  if (category.includes("clothing") || category.includes("apparel")) return "Women's Clothing";
+  return fallback || "Other";
+}
+
+function normalizeCondition(value, fallback) {
+  const condition = String(value || "").toLowerCase();
+  if (/new.+tag|nwt/.test(condition)) return "New with tags";
+  if (/new/.test(condition)) return "New without tags";
+  if (/excellent|like new/.test(condition)) return "Pre-owned - Excellent";
+  if (/fair|heavy|worn|damage/.test(condition)) return "Pre-owned - Fair";
+  if (/good|used|pre.?owned/.test(condition)) return "Pre-owned - Good";
+  return fallback || "Pre-owned - Good";
+}
+
+function confidencePercent(value, fallback = 70) {
+  const text = String(value || "").toLowerCase();
+  if (/very high|high/.test(text)) return 90;
+  if (/medium|moderate/.test(text)) return 74;
+  if (/low/.test(text)) return 52;
+  const numeric = Number.parseFloat(text);
+  return Number.isFinite(numeric) ? Math.max(1, Math.min(100, numeric <= 1 ? numeric * 100 : numeric)) : fallback;
+}
+
+async function imageUrlForAI(url) {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const maxDimension = 1400;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    return canvas.toDataURL("image/jpeg", .84);
+  } catch {
+    return blobToDataURL(blob);
+  }
+}
+
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("SourceTro could not prepare that photo. Try a JPEG or PNG image."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function unlockLiveAI() {
+  const input = document.querySelector("#sourceTroOwnerKey");
+  const key = input?.value.trim() || "";
+  if (!key) {
+    state.aiError = "Paste the SourceTro Owner Key you saved in Edge.";
     render();
-    setTroState("success", "Sourcing answer ready.", 2600);
-  }, 750);
+    document.querySelector("#sourceTroOwnerKey")?.focus();
+    return;
+  }
+  state.aiOwnerKey = key;
+  state.aiStatus = "ready";
+  state.aiError = "";
+  saveSessionValue(OWNER_KEY_STORAGE, key);
+  saveSessionValue(AI_VERIFIED_STORAGE, "");
+  render();
+  showToast("Owner key ready. Add an item photo and Tro will verify it during the first analysis.");
+}
+
+function lockLiveAI() {
+  state.aiOwnerKey = "";
+  state.aiStatus = "locked";
+  saveSessionValue(OWNER_KEY_STORAGE, "");
+  saveSessionValue(AI_VERIFIED_STORAGE, "");
 }
 
 function useDemoScan() {
   state.sourceScan = { ...sourceScanDefaults, itemName: "721 high rise skinny jeans size 16W", brand: "Levi's", purchasePrice: "12", condition: "Pre-owned - Excellent" };
   state.sourceResult = null;
+  buildSourceResult();
   render();
-  analyzeSourceScan();
+  showToast("Demo planning estimate loaded. Your real photo uses live Tro AI.");
 }
 
 function resetSourceScan() {
@@ -834,15 +1125,39 @@ function saveSourceDecision() {
 function scanToListing() {
   if (!state.sourceResult) return;
   const result = state.sourceResult;
+  const identification = result.aiIdentification || {};
+  const aiListing = result.aiListing || null;
+  const specifics = Object.fromEntries((aiListing?.item_specifics || []).map((item) => [String(item.name || "").toLowerCase(), item.value || ""]));
+  const specific = (...names) => {
+    const match = Object.entries(specifics).find(([key]) => names.some((name) => key.includes(name)));
+    return match?.[1] || "";
+  };
+  const priceEvidence = result.verifiedComps
+    ? `Seller-verified comparable range: ${money(result.soldLow)}–${money(result.soldHigh)}.`
+    : `Planning price range: ${money(result.soldLow)}–${money(result.soldHigh)}; verify sold comparisons before publishing.`;
   state.listing = {
     ...listingDefaults,
     category: result.category,
     itemType: state.sourceScan.itemName || result.identifiedItem,
-    brand: state.sourceScan.brand,
+    brand: state.sourceScan.brand || identification.brand || "",
+    size: usableAIValue(identification.size) ? identification.size : specific("size"),
+    color: usableAIValue(identification.color) ? identification.color : specific("color"),
+    material: specific("material", "fabric"),
+    styleModel: usableAIValue(identification.style) ? identification.style : specific("style", "model"),
     condition: result.condition,
+    flaws: (identification.visible_flaws || []).join("; "),
+    title: aiListing?.seo_title || "",
+    description: aiListing?.description || "",
     listPrice: result.median,
-    notes: `Sourcing estimate: ${result.recommendation}. Estimated resale range ${money(result.soldLow)}–${money(result.soldHigh)}. Verify live comparisons before publishing.`,
+    notes: `${result.aiAssisted ? "Tro AI photo analysis" : "Sourcing estimate"}: ${result.recommendation}. ${priceEvidence}${result.aiWarnings?.length ? ` Check: ${result.aiWarnings.join(" ")}` : ""}`,
     itemCost: result.purchasePrice || "",
+    sourceLocation: result.sourceLocation || "",
+    researchQuery: result.researchQuery,
+    comparisonLow: result.soldLow,
+    comparisonHigh: result.soldHigh,
+    sourceDecision: result.recommendation,
+    bestMarketplace: result.bestMarketplace,
+    expectedDays: result.days,
     offerPrice: Math.round(result.median * .9),
     lowestPrice: Math.round(result.median * .75),
   };
@@ -850,10 +1165,10 @@ function scanToListing() {
     state.photos = [state.sourcePhoto];
     state.sourcePhoto = null;
   }
-  state.generated = false;
-  state.wizardStep = state.photos.length ? 2 : 1;
+  state.generated = Boolean(aiListing?.seo_title && aiListing?.description);
+  state.wizardStep = state.generated ? 4 : (state.photos.length ? 2 : 1);
   setRoute("new-listing");
-  showToast("Scan details carried into your listing. Nothing needs to be entered twice.");
+  showToast(state.generated ? "Tro’s SEO title and description are ready to review." : "Scan details carried into your listing. Nothing needs to be entered twice.");
 }
 
 function listingView() {
@@ -951,7 +1266,7 @@ function generateStep() {
       <div class="generate-box">
         <span class="tro-orb"><i></i></span>
         <h2>Ready when you are</h2>
-        <p>I’ll draft an 80-character marketplace title, buyer-friendly description, measurement section, and three pricing points.</p>
+        <p>I’ll draft a search-friendly marketplace title, buyer-focused description, item-specific checklist, measurement section, and three pricing points.</p>
         <button class="button large" data-action="generate-listing">✦ Create my listing</button>
       </div>
       ${wizardFooter("Review listing", true)}`;
@@ -961,6 +1276,7 @@ function generateStep() {
   return `
     ${wizardHeader(4, "Tro created your listing", "Review and change anything before you publish.")}
     <div class="ai-results">
+      ${seoReviewMarkup()}
       <div class="ai-card"><label><span>Suggested title</span><span>${state.listing.title.length}/80</span></label><input data-bind="title" maxlength="80" value="${esc(state.listing.title)}" /></div>
       <div class="ai-card"><label><span>Description</span><span>Buyer-friendly</span></label><textarea data-bind="description">${esc(state.listing.description)}</textarea></div>
       <div class="price-row">
@@ -987,6 +1303,8 @@ function publishStep() {
       <div class="review-photo">${firstPhoto ? `<img src="${firstPhoto}" alt="Listing cover" />` : "No photo"}</div>
       <div><span class="tag">Ready for review</span><h3>${esc(title)}</h3><p>${esc(state.listing.condition)} · ${esc(state.listing.size || "Size not entered")} · ${esc(state.listing.color || "Color not entered")}</p><strong>${money(state.listing.listPrice)}</strong></div>
     </div>
+    ${seoReviewMarkup(true)}
+    ${sellingCoachMarkup()}
     <h3>Choose marketplaces</h3>
     <div class="market-grid">
       ${marketOption("eBay", "ebay", "Best reach for nearly everything")}
@@ -1014,6 +1332,44 @@ function publishStep() {
 function marketOption(name, className, copy) {
   const checked = state.listing.marketplaces.includes(name);
   return `<label class="market-option"><input type="checkbox" data-marketplace="${name}" ${checked ? "checked" : ""} /><span class="market-logo ${className}">${name.slice(0, 1)}</span><span><strong>${name}</strong><small>${copy}</small></span></label>`;
+}
+
+function seoListingReview() {
+  const listing = state.listing;
+  const clothing = listing.category.includes("Clothing") || listing.category === "Shoes";
+  const measurements = [listing.chest, listing.waist, listing.hips, listing.length, listing.inseam, listing.sleeve].filter(Boolean).length;
+  const title = listing.title || buildTitle();
+  const checks = [
+    { label: "Brand + item type", done: Boolean(listing.brand && listing.itemType), tip: "Add the brand and exact product name buyers search." },
+    { label: "Strong title length", done: title.length >= 45 && title.length <= 80, tip: "Aim for 45–80 useful characters without filler words." },
+    { label: "Size, color, or model", done: Boolean(listing.size && (listing.color || listing.styleModel)), tip: "Add size plus color or model to narrow the search match." },
+    { label: "Condition and flaws", done: Boolean(listing.condition && (listing.flaws || listing.notes)), tip: "Describe condition honestly and name any flaw." },
+    { label: clothing ? "Buyer measurements" : "Useful specifications", done: clothing ? measurements >= 2 : Boolean(listing.styleModel || listing.material), tip: clothing ? "Add at least two flat-lay measurements." : "Add a model, material, dimensions, or key specifications." },
+    { label: "Photo coverage", done: state.photos.length >= 4, tip: "Use at least four clear photos: front, back, label, and condition." },
+  ];
+  const complete = checks.filter((check) => check.done).length;
+  return { score: Math.round((complete / checks.length) * 100), checks, title };
+}
+
+function seoReviewMarkup(compact = false) {
+  const review = seoListingReview();
+  const missing = review.checks.filter((check) => !check.done);
+  return `<section class="seo-review ${compact ? "compact" : ""}" data-seo-review>
+    <div class="seo-score"><div class="score-ring" style="--score:${review.score}"><strong data-seo-score>${review.score}</strong><small>/100</small></div><div><small>SourceTro SEO Check</small><h3 data-seo-label>${review.score >= 84 ? "Strong and searchable" : review.score >= 67 ? "Good—add a few details" : "Needs a little more detail"}</h3><p>Tro checks the words and details buyers use to find and trust a listing.</p></div></div>
+    <div class="seo-check-list" data-seo-checks>${review.checks.map((check) => `<span class="${check.done ? "done" : "missing"}"><b>${check.done ? "✓" : "+"}</b>${check.label}</span>`).join("")}</div>
+    ${missing.length && !compact ? `<p class="seo-next"><strong>Best next improvement:</strong> ${esc(missing[0].tip)}</p>` : ""}
+  </section>`;
+}
+
+function sellingCoachMarkup() {
+  const listing = state.listing;
+  const market = listing.bestMarketplace || listing.marketplaces[0] || "eBay";
+  const floor = listing.lowestPrice || Math.round(Number(listing.listPrice || 0) * .75);
+  return `<section class="selling-coach">
+    <div><small>Best place to start</small><strong>${esc(market)}</strong><p>${listing.researchQuery ? `Based on the item type and comparison search: ${esc(listing.researchQuery)}.` : "Tro will refine this after comparison research."}</p></div>
+    <div><small>Price plan</small><strong>${money(listing.listPrice)} list · ${money(floor)} floor</strong><p>Review after ${listing.expectedDays || 30} days if there are no watchers, offers, or messages.</p></div>
+    <div><small>Source record</small><strong>${esc(listing.sourceLocation || "Add the sourcing place below")}</strong><p>Tracking this shows which stores and sourcing places actually make you money.</p></div>
+  </section>`;
 }
 
 function buildTitle() {
@@ -1483,7 +1839,16 @@ document.addEventListener("click", (event) => {
   }
 
   const action = event.target.closest("[data-action]")?.dataset.action;
+  const journey = event.target.closest("[data-scan-journey]")?.dataset.scanJourney;
+  if (journey) {
+    state.sourceScan.journey = journey;
+    state.sourceResult = null;
+    render();
+    return;
+  }
   if (action === "toggle-mode") { setAppMode(state.appMode === "personal" ? "full" : "personal"); return; }
+  if (action === "unlock-live-ai") { unlockLiveAI(); return; }
+  if (action === "lock-live-ai") { lockLiveAI(); state.aiError = ""; render(); showToast("Live AI is locked on this browser tab."); return; }
   if (action === "demo-listing") useDemoListing();
   if (action === "demo-source") useDemoScan();
   if (action === "open-tro") openTro();
@@ -1600,11 +1965,15 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("input", (event) => {
   const bound = event.target.dataset.bind;
-  if (bound) state.listing[bound] = event.target.value;
+  if (bound) {
+    state.listing[bound] = event.target.value;
+    refreshSeoReview();
+  }
   const scanBound = event.target.dataset.scanBind;
   if (scanBound) {
     state.sourceScan[scanBound] = event.target.value;
     state.sourceResult = null;
+    refreshResearchLaunch();
   }
   const feedbackBound = event.target.dataset.feedbackBind;
   if (feedbackBound) state.feedbackDraft[feedbackBound] = event.target.value;
@@ -1622,6 +1991,24 @@ document.addEventListener("input", (event) => {
   }
 });
 
+function refreshResearchLaunch() {
+  const query = buildResearchQuery();
+  const queryNode = document.querySelector("[data-research-query]");
+  const link = document.querySelector("[data-research-link]");
+  if (queryNode) queryNode.textContent = query || "Add an item or brand first";
+  if (link) {
+    link.href = ebaySoldSearchUrl();
+    link.classList.toggle("disabled", !query);
+  }
+}
+
+function refreshSeoReview() {
+  const review = seoListingReview();
+  document.querySelectorAll("[data-seo-score]").forEach((node) => { node.textContent = review.score; node.closest(".score-ring")?.style.setProperty("--score", review.score); });
+  document.querySelectorAll("[data-seo-label]").forEach((node) => { node.textContent = review.score >= 84 ? "Strong and searchable" : review.score >= 67 ? "Good—add a few details" : "Needs a little more detail"; });
+  document.querySelectorAll("[data-seo-checks]").forEach((node) => { node.innerHTML = review.checks.map((check) => `<span class="${check.done ? "done" : "missing"}"><b>${check.done ? "✓" : "+"}</b>${check.label}</span>`).join(""); });
+}
+
 document.addEventListener("change", (event) => {
   const bound = event.target.dataset.bind;
   if (bound) state.listing[bound] = event.target.value;
@@ -1629,6 +2016,7 @@ document.addEventListener("change", (event) => {
   if (scanBound) {
     state.sourceScan[scanBound] = event.target.value;
     state.sourceResult = null;
+    refreshResearchLaunch();
   }
   const troFitBound = event.target.dataset.trofitBind;
   if (troFitBound) state.troFit[troFitBound] = event.target.value;
@@ -1716,7 +2104,7 @@ window.addEventListener("hashchange", () => {
 });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=7").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=10").catch(() => {}));
 }
 
 render();
