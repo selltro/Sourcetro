@@ -299,6 +299,15 @@ h3 { font-size: 16px; }
 .source-upload.has-photo img { width: 100%; height: 330px; object-fit: contain; }
 .source-upload .replace-photo { position: absolute; right: 12px; bottom: 12px; z-index: 2; padding: 8px 11px; border: 0; border-radius: 10px; color: white; background: rgba(22,40,58,.82); font-weight: 700; }
 .source-upload input { z-index: 3; }
+.photo-analyze-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; margin-top: 14px; padding: 16px; border: 1px solid #b9d7e3; border-radius: 16px; background: linear-gradient(135deg, #eef8fc, #f8fcfe); }
+.photo-analyze-card strong, .photo-analyze-card small, .photo-analyze-card em { display: block; }
+.photo-analyze-card small { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.photo-analyze-card em { margin-top: 7px; color: var(--danger); font-size: 12px; font-style: normal; font-weight: 700; }
+.photo-analyze-card.error { border-color: #e5b4b4; background: #fff4f4; }
+.waiting-analyze-button { margin-top: 20px; }
+.source-inline-error { width: min(420px, 100%); margin: 16px auto 0; padding: 12px 14px; border: 1px solid #e5b4b4; border-radius: 12px; color: #8a3030; background: #fff4f4; text-align: left; }
+.source-inline-error strong, .source-inline-error span { display: block; }
+.source-inline-error span { margin-top: 3px; font-size: 12px; line-height: 1.45; }
 .scan-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 .research-launch { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px; border: 1px solid #c9dce4; border-radius: 15px; background: var(--blue-soft); }
 .research-launch small, .research-launch strong { display: block; }
@@ -793,6 +802,8 @@ h3 { font-size: 16px; }
   .personal-summary-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .start-choice b { grid-column: 2; }
   .source-scan-form { padding: 20px 16px; }
+  .photo-analyze-card { grid-template-columns: 1fr; }
+  .photo-analyze-card .button { width: 100%; }
   .source-waiting { min-height: 420px; padding: 26px 20px; }
   .source-upload.has-photo, .source-upload.has-photo img { min-height: 260px; height: 260px; }
   .result-metrics { margin-inline: 16px; }
