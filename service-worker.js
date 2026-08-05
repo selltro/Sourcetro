@@ -1,4 +1,4 @@
-const CACHE = "sourcetro-v1";
+const CACHE = "sourcetro-v2-expressive-tro";
 const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./assets/sourcetro-mark.svg"];
 
 self.addEventListener("install", (event) => {

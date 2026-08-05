@@ -65,8 +65,10 @@ button { cursor: pointer; }
 .tro-card { width: 100%; display: flex; align-items: center; gap: 10px; padding: 13px; border: 1px solid rgba(255,255,255,.1); border-radius: 15px; color: white; background: rgba(255,255,255,.07); text-align: left; }
 .tro-card span:nth-child(2), .profile-row span:nth-child(2), .tro-title > span:last-child { display: grid; gap: 2px; }
 .tro-card small, .profile-row small, .tro-title small { color: #9bb9c0; font-size: 11px; }
-.tro-orb { position: relative; flex: 0 0 34px; width: 34px; height: 34px; border: 2px solid #79e6da; border-radius: 50%; background: radial-gradient(circle at 35% 28%, white 0 6%, #70eadc 8%, #1b9f9c 40%, #123b55 85%); box-shadow: 0 0 0 4px rgba(69, 214, 197, .09); }
-.tro-orb i { position: absolute; width: 7px; height: 7px; top: 7px; left: 8px; border-radius: 50%; background: rgba(255,255,255,.8); }
+.tro-orb { position: relative; flex: 0 0 34px; width: 34px; height: 34px; overflow: hidden; border: 3px solid #a6ebe2; border-radius: 50%; background: radial-gradient(circle at 50% 68%, #194f5a, #071b26 75%); box-shadow: 0 0 0 4px rgba(69,214,197,.09), inset 0 0 9px rgba(0,0,0,.75); }
+.tro-orb::before { content: ""; position: absolute; width: 7px; height: 5px; top: 11px; left: 7px; border-radius: 50%; background: #6ff3c7; box-shadow: 11px 0 0 #6ff3c7, 0 0 5px rgba(95,240,192,.9), 11px 0 5px rgba(95,240,192,.9); }
+.tro-orb::after { content: ""; position: absolute; width: 13px; height: 7px; left: 50%; bottom: 6px; border-bottom: 2px solid #6ff3c7; border-radius: 0 0 14px 14px; transform: translateX(-50%); }
+.tro-orb i { display: none; }
 .profile-row { display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 12px 6px 0; border-top: 1px solid rgba(255,255,255,.1); }
 .profile-row .icon-button { margin-left: auto; color: #9bb9c0; }
 .avatar { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: white; background: linear-gradient(135deg, #23ad9e, #0c5968); font-weight: 800; }
@@ -108,11 +110,54 @@ h3 { font-size: 16px; }
 .hero-card p { max-width: 600px; color: #c7dde0; line-height: 1.65; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
 .hero-card .button.secondary { color: white; border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.09); }
-.hero-lens { position: relative; z-index: 1; display: grid; place-items: center; min-height: 190px; }
-.camera-lens { position: relative; width: 156px; height: 156px; display: grid; place-items: center; border: 16px solid rgba(110,238,219,.8); border-radius: 50%; background: #eefefa; box-shadow: 0 0 0 7px rgba(255,255,255,.13), inset 0 0 20px rgba(15,118,110,.25), 0 18px 50px rgba(0,0,0,.24); }
-.camera-lens::before { content: ""; width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle at 34% 28%, white 0 6%, #8df5e7 8%, #27b7b2 26%, #126780 55%, #0a2939 84%); }
-.camera-lens i { position: absolute; width: 19px; height: 19px; top: 38px; left: 40px; border-radius: 50%; background: rgba(255,255,255,.72); }
-.hero-lens small { position: absolute; bottom: 4px; padding: 6px 11px; border-radius: 999px; color: #d9fffa; background: rgba(5,36,44,.62); font-weight: 700; }
+.hero-lens { position: relative; z-index: 1; display: grid; place-items: center; min-height: 220px; }
+.tro-character { position: relative; width: 196px; height: 184px; display: grid; place-items: center; padding: 0; border: 0; color: inherit; background: transparent; filter: drop-shadow(0 20px 22px rgba(0,0,0,.28)); transition: transform .22s ease, filter .22s ease; }
+.tro-character:hover { transform: translateY(-4px) scale(1.025); filter: drop-shadow(0 25px 26px rgba(0,0,0,.32)); }
+.tro-character:active { transform: translateY(-1px) scale(.99); }
+.tro-character:focus-visible { outline: 3px solid #8df5e7; outline-offset: 5px; border-radius: 50%; }
+.tro-lens-body { position: relative; z-index: 2; width: 166px; height: 166px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(145deg, #ffffff 4%, #dce8e8 37%, #91aeb2 66%, #f4ffff 82%, #718e96 100%); box-shadow: 0 0 0 5px rgba(255,255,255,.2), inset 7px 8px 16px rgba(255,255,255,.9), inset -9px -11px 18px rgba(16,42,53,.35); }
+.tro-lens-body::before { content: ""; position: absolute; inset: 11px; border: 3px solid #38d8bd; border-radius: 50%; box-shadow: 0 0 16px rgba(73,238,206,.7), inset 0 0 10px rgba(73,238,206,.35); }
+.tro-lens-body::after { content: ""; position: absolute; width: 9px; height: 9px; top: 25px; right: 31px; border-radius: 50%; background: #79f2d8; box-shadow: 0 0 10px #79f2d8; }
+.tro-focus-ring { position: absolute; inset: 22px; z-index: 1; border: 2px dashed rgba(115,245,218,.5); border-radius: 50%; }
+.tro-glass { position: relative; z-index: 2; width: 116px; height: 116px; overflow: hidden; border: 5px solid #102f3c; border-radius: 50%; background: radial-gradient(circle at 52% 68%, #195d67 0, #102f3e 35%, #071b26 76%, #020b10 100%); box-shadow: inset 0 0 30px rgba(0,0,0,.9), 0 0 0 3px #294e59, 0 0 18px rgba(57,229,196,.3); }
+.tro-shine { position: absolute; width: 46px; height: 22px; top: 13px; left: 18px; border-radius: 50%; background: linear-gradient(145deg, rgba(255,255,255,.42), rgba(255,255,255,0)); transform: rotate(-26deg); filter: blur(1px); }
+.tro-eye { position: absolute; top: 40px; width: 21px; height: 13px; border-radius: 50%; background: #6ff3c7; box-shadow: 0 0 7px #5ff0c0, 0 0 15px rgba(95,240,192,.75); transition: .22s ease; animation: tro-blink 5.2s infinite; }
+.tro-eye-left { left: 27px; transform: rotate(5deg); }
+.tro-eye-right { right: 27px; transform: rotate(-5deg); }
+.tro-mouth { position: absolute; left: 50%; bottom: 25px; width: 35px; height: 17px; border-bottom: 5px solid #6ff3c7; border-radius: 0 0 32px 32px; transform: translateX(-50%); filter: drop-shadow(0 0 5px rgba(95,240,192,.85)); transition: .22s ease; }
+.tro-cheek { position: absolute; bottom: 35px; width: 12px; height: 6px; border-radius: 50%; background: rgba(255,126,122,.28); filter: blur(1px); opacity: .75; }
+.tro-cheek-left { left: 20px; }
+.tro-cheek-right { right: 20px; }
+.tro-arm { position: absolute; z-index: 1; width: 50px; height: 22px; top: 104px; border: 9px solid #cce0df; border-top: 0; background: transparent; }
+.tro-arm-left { left: 4px; border-right: 0; border-radius: 0 0 0 30px; transform: rotate(18deg); }
+.tro-arm-right { right: 0; top: 67px; border-left: 0; border-radius: 0 0 30px 0; transform-origin: 8px 17px; transform: rotate(-34deg); animation: tro-wave 2.8s ease-in-out infinite; }
+.tro-arm-right::after { content: ""; position: absolute; width: 21px; height: 21px; right: -17px; top: 5px; border: 5px solid #d9e8e6; border-radius: 50%; background: #45d8bf; box-shadow: inset 3px 3px 4px rgba(255,255,255,.45); }
+.tro-status { position: absolute; bottom: -2px; min-width: 138px; padding: 7px 12px; border: 1px solid rgba(124,239,221,.2); border-radius: 999px; color: #e8fffb; background: rgba(5,36,44,.72); box-shadow: 0 8px 20px rgba(0,0,0,.15); font-weight: 700; text-align: center; }
+
+.tro-character[data-mood="happy"] .tro-eye,
+.tro-character[data-mood="success"] .tro-eye { height: 16px; border-radius: 0 0 24px 24px; background: transparent; border-bottom: 5px solid #78ffd2; box-shadow: none; animation: none; }
+.tro-character[data-mood="happy"] .tro-mouth,
+.tro-character[data-mood="success"] .tro-mouth { width: 43px; height: 21px; }
+.tro-character[data-mood="thinking"] .tro-eye-left { width: 15px; height: 15px; }
+.tro-character[data-mood="thinking"] .tro-eye-right { top: 34px; width: 25px; height: 9px; transform: rotate(-12deg); }
+.tro-character[data-mood="thinking"] .tro-mouth { width: 22px; height: 7px; bottom: 27px; border-radius: 50%; transform: translateX(-50%) rotate(-8deg); }
+.tro-character[data-mood="thinking"] .tro-focus-ring,
+.tro-character[data-mood="working"] .tro-focus-ring { animation: tro-focus 1.4s linear infinite; }
+.tro-character[data-mood="listening"] .tro-eye { top: 36px; width: 23px; height: 23px; animation: tro-listen .8s ease-in-out infinite alternate; }
+.tro-character[data-mood="listening"] .tro-mouth { width: 18px; height: 18px; border: 4px solid #6ff3c7; border-radius: 50%; }
+.tro-character[data-mood="working"] .tro-eye { top: 44px; height: 6px; border-radius: 8px; animation: none; }
+.tro-character[data-mood="working"] .tro-mouth { width: 28px; height: 2px; border-radius: 0; }
+.tro-character[data-mood="success"] .tro-lens-body::before { animation: tro-success 1s ease-in-out infinite alternate; }
+
+@keyframes tro-blink { 0%, 45%, 49%, 100% { transform: scaleY(1); } 47% { transform: scaleY(.12); } }
+@keyframes tro-wave { 0%, 72%, 100% { transform: rotate(-34deg); } 79% { transform: rotate(-49deg); } 87% { transform: rotate(-24deg); } 94% { transform: rotate(-44deg); } }
+@keyframes tro-focus { to { transform: rotate(360deg); } }
+@keyframes tro-listen { from { box-shadow: 0 0 7px #5ff0c0, 0 0 12px rgba(95,240,192,.6); } to { box-shadow: 0 0 10px #8affdd, 0 0 24px rgba(95,240,192,.95); } }
+@keyframes tro-success { from { box-shadow: 0 0 12px rgba(73,238,206,.55), inset 0 0 8px rgba(73,238,206,.25); } to { box-shadow: 0 0 28px rgba(99,255,208,1), inset 0 0 18px rgba(99,255,208,.5); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tro-eye, .tro-arm-right, .tro-focus-ring, .tro-character[data-mood="success"] .tro-lens-body::before { animation: none !important; }
+}
 
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 15px; margin: 22px 0; }
 .stat-card { padding: 20px; border: 1px solid rgba(24,48,57,.07); border-radius: var(--radius); background: rgba(255,253,249,.9); box-shadow: 0 8px 24px rgba(16,42,53,.04); }
