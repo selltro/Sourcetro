@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta
+      name="description"
+      content="SourceTro helps resellers move every item from source to sold with photos, measurements, AI listing help, inventory, orders, shipping, and analytics."
+    />
+    <title>SourceTro — From Source to Sold</title>
+    <link rel="icon" href="assets/sourcetro-mark.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand-block">
+          <button class="brand" data-route="dashboard" aria-label="SourceTro dashboard">
+            <span>SourceTr</span><span class="lens-o" aria-hidden="true"><i></i></span>
+          </button>
+          <p>FROM SOURCE TO SOLD</p>
+        </div>
+
+        <nav class="side-nav" aria-label="Main navigation">
+          <button class="nav-item active" data-route="dashboard"><span>⌂</span> Dashboard</button>
+          <button class="nav-item nav-primary" data-route="new-listing"><span>＋</span> New listing</button>
+          <button class="nav-item" data-route="inventory"><span>▦</span> Inventory</button>
+          <button class="nav-item" data-route="orders"><span>▣</span> Orders</button>
+          <button class="nav-item" data-route="shipping"><span>↗</span> Shipping</button>
+          <button class="nav-item" data-route="analytics"><span>⌁</span> Analytics</button>
+          <button class="nav-item" data-route="finances"><span>$</span> Finances</button>
+          <button class="nav-item" data-route="marketplaces"><span>⇄</span> Marketplaces</button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <button class="tro-card" id="openTroFromSidebar">
+            <span class="tro-orb"><i></i></span>
+            <span><strong>Ask Tro</strong><small>Your resale co-pilot</small></span>
+          </button>
+          <div class="profile-row">
+            <span class="avatar">N</span>
+            <span><strong>Nydia</strong><small>Budget Basket</small></span>
+            <button class="icon-button" aria-label="Settings">•••</button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <button class="icon-button menu-button" id="menuButton" aria-label="Open navigation">☰</button>
+          <div class="mobile-brand" aria-label="SourceTro"><span>SourceTr</span><span class="lens-o"><i></i></span></div>
+          <div class="topbar-actions">
+            <button class="voice-top" id="voiceQuickAction"><span>●</span> Talk to Tro</button>
+            <button class="icon-button notification" aria-label="Notifications">♧<i></i></button>
+            <span class="avatar top-avatar">N</span>
+          </div>
+        </header>
+
+        <section class="page" id="page" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <div class="mobile-nav" aria-label="Mobile navigation">
+      <button data-route="dashboard" class="active"><span>⌂</span>Home</button>
+      <button data-route="inventory"><span>▦</span>Inventory</button>
+      <button data-route="new-listing" class="mobile-add" aria-label="Create a listing">＋</button>
+      <button data-route="orders"><span>▣</span>Orders</button>
+      <button id="mobileTro"><span>◉</span>Tro</button>
+    </div>
+
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    <aside class="tro-drawer" id="troDrawer" aria-label="Chat with Tro" aria-hidden="true">
+      <header>
+        <div class="tro-title"><span class="tro-orb"><i></i></span><span><strong>Tro</strong><small>Your trusted resale operator</small></span></div>
+        <button class="icon-button" id="closeTro" aria-label="Close Tro">×</button>
+      </header>
+      <div class="tro-messages" id="troMessages">
+        <div class="message tro-message">Hi Nydia! What can I help you list, price, organize, or ship today?</div>
+      </div>
+      <div class="tro-suggestions">
+        <button>Help me price an item</button>
+        <button>What should I list today?</button>
+        <button>Write an eBay title</button>
+      </div>
+      <form class="tro-input" id="troForm">
+        <button type="button" class="mic-button" id="troMic" aria-label="Speak to Tro">●</button>
+        <input id="troInput" placeholder="Ask Tro anything…" autocomplete="off" />
+        <button type="submit" class="send-button" aria-label="Send">➜</button>
+      </form>
+    </aside>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
