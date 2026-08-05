@@ -1,9 +1,9 @@
-const CACHE = "sourcetro-v11-visible-analyze";
+const CACHE = "sourcetro-v12-simple-secure-request";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=11",
-  "./app.js?v=11",
+  "./styles.css?v=12",
+  "./app.js?v=12",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
