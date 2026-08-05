@@ -42,6 +42,65 @@ const sourceScanDefaults = {
   marketplace: "eBay",
 };
 
+const membershipPlans = [
+  {
+    id: "free",
+    name: "Try Tro",
+    eyebrow: "Start free",
+    monthly: 0,
+    annual: 0,
+    description: "Learn the SourceTro flow and create your first listings without a card.",
+    features: [
+      "5 Smart Source Scans each month",
+      "10 AI-created listings each month",
+      "1 marketplace",
+      "Basic inventory and bin tracking",
+      "Talk to Tro and Tell Tro",
+    ],
+  },
+  {
+    id: "seller",
+    name: "Seller",
+    eyebrow: "For active resellers",
+    monthly: 29.99,
+    annual: 299,
+    description: "A complete weekly workflow for sourcing, listing, cross-listing, and staying organized.",
+    features: [
+      "100 new items each month",
+      "100 Smart Source Scans each month",
+      "Cross-list to 4 marketplaces",
+      "100 background removals each month",
+      "Auto-delisting when an item sells",
+      "Voice help, bin tracking, and profit reports",
+    ],
+    featured: true,
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    eyebrow: "For growing businesses",
+    monthly: 39.99,
+    annual: 399,
+    description: "More volume, stronger insights, and time-saving tools for serious resellers.",
+    features: [
+      "250 new items each month",
+      "250 Smart Source Scans each month",
+      "All supported marketplaces",
+      "300 background removals each month",
+      "Bulk tools and Dead-Pile Rescue",
+      "Advanced analytics, mileage, and tax reports",
+      "Automations and priority support",
+    ],
+  },
+];
+
+const roadmapIdeas = [
+  { id: "best-market", title: "Best marketplace recommendation", copy: "Compare estimated profit and selling speed before choosing where to list.", status: "Planned", votes: 38 },
+  { id: "dead-pile", title: "Dead-Pile Rescue", copy: "Photograph several unlisted items and let Tro prepare the drafts in a batch.", status: "Under review", votes: 31 },
+  { id: "tro-today", title: "Tro Today", copy: "Get three simple daily actions that move your resale business forward.", status: "Building", votes: 24 },
+  { id: "scan", title: "Smart Source Scan", copy: "Estimate value, profit, ROI, and whether to buy before spending money.", status: "Now live", votes: 56 },
+];
+
 const state = {
   route: location.hash.replace("#", "") || "dashboard",
   wizardStep: 1,
@@ -55,6 +114,12 @@ const state = {
   sourceResult: null,
   scanHistory: loadJSON("sourcetro_scan_history", []),
   financeRecords: loadJSON("sourcetro_finance_records", []),
+  billingCycle: "monthly",
+  membershipInterest: loadJSON("sourcetro_membership_interest", "free"),
+  feedback: loadJSON("sourcetro_feedback", []),
+  feedbackVotes: loadJSON("sourcetro_feedback_votes", {}),
+  feedbackDraft: { category: "I have an idea", message: "", contact: "" },
+  feedbackScreenshot: null,
 };
 
 function loadJSON(key, fallback) {
@@ -152,6 +217,8 @@ function render() {
     analytics: analyticsView,
     finances: financesView,
     marketplaces: marketplacesView,
+    membership: membershipView,
+    "tell-tro": tellTroView,
   };
   (routes[state.route] || dashboardView)();
   updateNavigation();
@@ -252,6 +319,19 @@ function dashboardView() {
       ${featureCard("✦", "List faster", "Titles, descriptions, item specifics, measurements, and pricing guidance.")}
       ${featureCard("⇄", "Cross-listing", "Prepare one item for eBay, Poshmark, Mercari, and Depop.")}
       ${featureCard("▦", "Inventory control", "Know the exact bin and SKU for every item.")}
+    </div>
+
+    <div class="community-strip">
+      <section>
+        <span class="community-icon">◇</span>
+        <div><p class="eyebrow">Membership</p><h2>Choose a plan that can grow with you</h2><p>Start free, then move up when you need more scans, listings, and marketplaces.</p></div>
+        <button class="button secondary" data-route="membership">Compare plans</button>
+      </section>
+      <section>
+        <span class="community-icon coral">✦</span>
+        <div><p class="eyebrow">Built with resellers</p><h2>Have an idea? Tell Tro.</h2><p>Report a problem, ask for help, request a marketplace, or vote on what SourceTro builds next.</p></div>
+        <button class="button" data-route="tell-tro">Tell Tro</button>
+      </section>
     </div>
 
     <section class="mission-card">
@@ -871,6 +951,172 @@ function marketplacesView() {
     <div class="panel" style="margin-top:20px"><h3>About marketplace connections</h3><p class="muted" style="margin-bottom:0">This build prepares and stores your listing information for eBay, Poshmark, Mercari, Depop, and Facebook Marketplace. Approved marketplace connections are required for real publishing, live orders, sold-price searches, status syncing, and automatic delisting when an item sells. The Connect buttons mark which accounts you want to set up next; they do not yet sign in or publish.</p></div>`;
 }
 
+function membershipView() {
+  const cycle = state.billingCycle;
+  page.innerHTML = `
+    ${routeTitle("Memberships made for resellers", "Start free. Upgrade when SourceTro is saving you enough time to need more scans, listings, and marketplaces.")}
+    <section class="membership-hero">
+      <div>
+        <p class="eyebrow">Simple, protected pricing</p>
+        <h2>One item counts once—even when you cross-list it.</h2>
+        <p>SourceTro will never count the same item four times just because it was prepared for four marketplaces. Monthly limits protect the real cost of AI scans, listing creation, and photo processing so the memberships can stay sustainable.</p>
+      </div>
+      <div class="billing-toggle" role="group" aria-label="Billing cycle">
+        <button class="${cycle === "monthly" ? "active" : ""}" data-billing="monthly">Monthly</button>
+        <button class="${cycle === "annual" ? "active" : ""}" data-billing="annual">Annual <span>Save up to $100</span></button>
+      </div>
+    </section>
+
+    <div class="plan-grid">
+      ${membershipPlans.map((plan) => membershipPlanCard(plan, cycle)).join("")}
+    </div>
+
+    <p class="membership-note"><strong>Payments are not open yet.</strong> Choosing a plan now saves your interest on this device while SourceTro completes live scans, marketplace connections, secure accounts, and billing.</p>
+
+    <section class="panel plan-comparison">
+      <div class="panel-header"><div><p class="eyebrow">Compare at a glance</p><h2>What changes with each plan</h2></div></div>
+      <div class="table-wrap"><table class="comparison-table">
+        <thead><tr><th>Feature</th><th>Free</th><th>Seller</th><th>Pro</th></tr></thead>
+        <tbody>
+          ${comparisonRow("New items each month", "10 AI listings", "100", "250")}
+          ${comparisonRow("Smart Source Scans", "5", "100", "250")}
+          ${comparisonRow("Marketplace access", "1", "4", "All supported")}
+          ${comparisonRow("Background removals", "—", "100", "300")}
+          ${comparisonRow("Auto-delisting", "—", "Included", "Included")}
+          ${comparisonRow("Bulk tools & Dead-Pile Rescue", "—", "—", "Included")}
+          ${comparisonRow("Reports", "Basic inventory", "Basic profit", "Advanced, mileage & tax")}
+          ${comparisonRow("Talk to Tro & Tell Tro", "Included", "Included", "Priority support")}
+        </tbody>
+      </table></div>
+    </section>
+
+    <section class="founding-card">
+      <span class="tro-orb" data-mood="success"><i></i></span>
+      <div><p class="eyebrow">Founding members</p><h2>Help build SourceTro from the beginning</h2><p>Early testers will be invited to try the working connections first, share feedback through Tell Tro, and keep their original launch price for at least one year.</p></div>
+      <button class="button" data-route="tell-tro">I want to help test</button>
+    </section>`;
+}
+
+function membershipPlanCard(plan, cycle) {
+  const isAnnual = cycle === "annual";
+  const selected = state.membershipInterest === plan.id;
+  const price = isAnnual ? plan.annual : plan.monthly;
+  const equivalent = isAnnual && plan.annual ? plan.annual / 12 : null;
+  return `<article class="plan-card ${plan.featured ? "featured" : ""} ${selected ? "selected" : ""}">
+    ${plan.featured ? '<span class="popular-badge">Best for most resellers</span>' : ""}
+    <p class="eyebrow">${plan.eyebrow}</p>
+    <h2>${plan.name}</h2>
+    <p class="plan-copy">${plan.description}</p>
+    <div class="plan-price"><strong>${money(price)}</strong><span>/${isAnnual ? "year" : "month"}</span></div>
+    ${equivalent ? `<small class="monthly-equivalent">About ${money(equivalent)}/month, billed annually</small>` : '<small class="monthly-equivalent">No credit card required</small>'}
+    <ul>${plan.features.map((feature) => `<li><span>✓</span>${feature}</li>`).join("")}</ul>
+    <button class="button ${plan.featured ? "" : "secondary"} full" data-plan-interest="${plan.id}">${selected ? "✓ Your choice" : plan.id === "free" ? "Start with Free" : `Choose ${plan.name}`}</button>
+  </article>`;
+}
+
+function comparisonRow(label, free, seller, pro) {
+  return `<tr><th>${label}</th><td>${free}</td><td>${seller}</td><td>${pro}</td></tr>`;
+}
+
+function tellTroView() {
+  const draft = state.feedbackDraft;
+  const screenshot = state.feedbackScreenshot;
+  const savedIdeas = state.feedback.filter((item) => item.category === "I have an idea" || item.category === "I want a marketplace added");
+  page.innerHTML = `
+    ${routeTitle("Tell Tro", "Your experience helps decide what SourceTro fixes, improves, and builds next.")}
+    <section class="tell-tro-intro">
+      <div class="tell-lens"><span class="tro-orb" data-mood="listening"><i></i></span></div>
+      <div><p class="eyebrow">You ask. Tro listens.</p><h2>Help us make reselling easier.</h2><p>Tell us when something is confusing, when something does not work, or when you have an idea that could save resellers time. You can speak or type.</p></div>
+      <div class="feedback-count"><strong>${state.feedback.length}</strong><span>Your submission${state.feedback.length === 1 ? "" : "s"}</span></div>
+    </section>
+
+    <div class="tell-tro-layout">
+      <section class="panel feedback-form-panel">
+        <div class="panel-header"><div><p class="eyebrow">Share feedback</p><h2>What would you like Tro to know?</h2></div></div>
+        <div class="feedback-category-grid" role="group" aria-label="Feedback type">
+          ${["Something isn’t working", "I’m confused", "I have an idea", "I want a marketplace added"].map((category) => `<button class="feedback-category ${draft.category === category ? "active" : ""}" data-feedback-category="${category}"><span>${feedbackCategoryIcon(category)}</span>${category}</button>`).join("")}
+        </div>
+        <div class="field full feedback-message-field">
+          <label for="feedbackMessage">Tell us what happened or what you would like added</label>
+          <textarea id="feedbackMessage" data-feedback-bind="message" placeholder="Example: I want Tro to show which marketplace is likely to sell my item fastest.">${esc(draft.message)}</textarea>
+          <button class="voice-feedback" data-action="speak-feedback" type="button"><span>●</span> Speak instead of typing</button>
+        </div>
+        <div class="form-grid feedback-extras">
+          <div class="field"><label for="feedbackContact">Email for an update (optional)</label><input id="feedbackContact" type="email" data-feedback-bind="contact" value="${esc(draft.contact)}" placeholder="you@example.com" /></div>
+          <div class="field"><label>Screenshot (optional)</label><label class="screenshot-picker"><input id="feedbackScreenshot" type="file" accept="image/*" /><span>${screenshot ? "Replace screenshot" : "＋ Attach screenshot"}</span><small>${screenshot ? esc(screenshot.name) : "PNG, JPG, or a phone screenshot"}</small></label></div>
+        </div>
+        ${screenshot ? `<div class="screenshot-preview"><img src="${screenshot.url}" alt="Feedback screenshot preview" /><button data-action="remove-feedback-screenshot" aria-label="Remove screenshot">×</button></div>` : ""}
+        <div class="feedback-submit-row"><p><strong>Prototype:</strong> submissions are saved on this device until secure member accounts and cloud delivery are connected.</p><button class="button large" data-action="submit-feedback">Send to Tro →</button></div>
+      </section>
+
+      <aside class="feedback-promise">
+        <p class="eyebrow">The Tro promise</p>
+        <h2>Your idea will not disappear into a box.</h2>
+        <ol>
+          <li><span>1</span><div><strong>Submitted</strong><small>Tro records the idea or problem.</small></div></li>
+          <li><span>2</span><div><strong>Reviewed & voted on</strong><small>Resellers help show what matters most.</small></div></li>
+          <li><span>3</span><div><strong>Planned or building</strong><small>The roadmap shows its progress.</small></div></li>
+          <li><span>4</span><div><strong>Now live</strong><small>“You asked. Tro listened.”</small></div></li>
+        </ol>
+        <div class="bonus-note">Selected member ideas may receive five bonus Smart Source Scans when memberships launch.</div>
+      </aside>
+    </div>
+
+    <section class="roadmap-section">
+      <div class="section-title"><p class="eyebrow">Customer roadmap</p><h2>Vote on what Tro builds next</h2><p class="muted">The highest vote count is not the only factor, but it helps us understand what would save resellers the most time.</p></div>
+      <div class="roadmap-grid">
+        ${roadmapIdeas.map((idea) => roadmapCard(idea)).join("")}
+        ${savedIdeas.slice(0, 4).map((idea) => roadmapCard({ id: idea.id, title: idea.message, copy: idea.category, status: "Submitted", votes: 1 }, true)).join("")}
+      </div>
+    </section>
+
+    ${state.feedback.length ? `<section class="panel your-feedback"><div class="panel-header"><div><p class="eyebrow">Saved on this device</p><h2>Your Tell Tro history</h2></div></div><div class="feedback-history">${state.feedback.slice(0, 6).map((item) => `<div><span class="feedback-type-icon">${feedbackCategoryIcon(item.category)}</span><span><strong>${esc(item.category)}</strong><small>${esc(item.message)} · ${new Date(item.createdAt).toLocaleDateString()}${item.screenshotName ? ` · Screenshot: ${esc(item.screenshotName)}` : ""}</small></span><b>Submitted</b></div>`).join("")}</div></section>` : ""}`;
+}
+
+function feedbackCategoryIcon(category) {
+  if (category.includes("working")) return "!";
+  if (category.includes("confused")) return "?";
+  if (category.includes("marketplace")) return "⇄";
+  return "✦";
+}
+
+function roadmapCard(idea, userIdea = false) {
+  const voted = Boolean(state.feedbackVotes[idea.id]);
+  const totalVotes = Number(idea.votes || 0) + (voted ? 1 : 0);
+  const statusClass = idea.status.toLowerCase().replaceAll(" ", "-");
+  return `<article class="roadmap-card ${userIdea ? "user-idea" : ""}">
+    <div><span class="roadmap-status ${statusClass}">${idea.status}</span>${userIdea ? '<span class="your-idea-label">Your idea</span>' : ""}</div>
+    <h3>${esc(idea.title)}</h3><p>${esc(idea.copy)}</p>
+    <button class="vote-button ${voted ? "voted" : ""}" data-vote-idea="${idea.id}"><span>▲</span>${totalVotes} vote${totalVotes === 1 ? "" : "s"}${voted ? " · Voted" : ""}</button>
+  </article>`;
+}
+
+function submitFeedback() {
+  const message = state.feedbackDraft.message.trim();
+  if (message.length < 8) {
+    showToast("Tell Tro a little more so we can understand your feedback.");
+    document.querySelector("#feedbackMessage")?.focus();
+    return;
+  }
+  const record = {
+    id: `TT-${Date.now()}`,
+    category: state.feedbackDraft.category,
+    message,
+    contact: state.feedbackDraft.contact.trim(),
+    screenshotName: state.feedbackScreenshot?.name || "",
+    status: "Submitted",
+    createdAt: new Date().toISOString(),
+  };
+  state.feedback.unshift(record);
+  saveJSON("sourcetro_feedback", state.feedback);
+  if (state.feedbackScreenshot?.url?.startsWith("blob:")) URL.revokeObjectURL(state.feedbackScreenshot.url);
+  state.feedbackScreenshot = null;
+  state.feedbackDraft = { category: "I have an idea", message: "", contact: "" };
+  setTroState("success", "Feedback saved. Thank you!", 2200);
+  render();
+  showToast("You asked. Tro listened—your feedback is saved.");
+}
+
 function useDemoListing() {
   state.listing = {
     ...listingDefaults,
@@ -909,6 +1155,8 @@ function closeTro() {
 
 function troReply(text) {
   const lower = text.toLowerCase();
+  if (lower.includes("suggest") || lower.includes("feedback") || lower.includes("idea") || lower.includes("add a marketplace")) return "I want to hear it. Open Tell Tro to speak or type your idea, attach a screenshot, and vote on the customer roadmap. During this prototype, your submission is saved on this device until secure cloud delivery is connected.";
+  if (lower.includes("membership") || lower.includes("plan") || lower.includes("29.99") || lower.includes("39.99")) return "SourceTro will launch with Free, Seller at $29.99 a month, and Pro at $39.99 a month. Open Membership to compare the monthly limits and save the plan that interests you. Payments are not open yet.";
   if (lower.includes("worth") || lower.includes("buy") || lower.includes("source")) return "Open Smart Source Scan, add a photo and the store price, and I’ll organize the resale range, estimated fees, shipping, profit, ROI, demand, maximum buy price, and a clear buy-or-pass answer. Live web comparisons will begin after the marketplace search service is connected.";
   if (lower.includes("price")) return "For a strong price suggestion, tell me the brand, item type, condition, and size. In the listing flow, I’ll give you a faster-sale price, recommended price, and higher test price.";
   if (lower.includes("title") || lower.includes("ebay")) return "A strong title starts with Brand + Item Type + Color + Size + important style or material keywords. Open New Listing and I’ll build one from your details.";
@@ -939,6 +1187,8 @@ function speakToInput(target, button) {
       render();
     } else if (target) {
       target.value = `${target.value ? `${target.value} ` : ""}${words}`;
+      const feedbackBound = target.dataset?.feedbackBind;
+      if (feedbackBound) state.feedbackDraft[feedbackBound] = target.value;
     }
     setTroState("thinking", "Got it — thinking…", 1400);
   };
@@ -971,6 +1221,13 @@ document.addEventListener("click", (event) => {
   if (action === "scan-to-listing") scanToListing();
   if (action === "add-finance-record") addFinanceRecord();
   if (action === "export-finances") exportFinanceCsv();
+  if (action === "submit-feedback") submitFeedback();
+  if (action === "speak-feedback") speakToInput(document.querySelector("#feedbackMessage"), event.target.closest("[data-action]"));
+  if (action === "remove-feedback-screenshot") {
+    if (state.feedbackScreenshot?.url?.startsWith("blob:")) URL.revokeObjectURL(state.feedbackScreenshot.url);
+    state.feedbackScreenshot = null;
+    render();
+  }
   if (action === "reset-scan") { resetSourceScan(); render(); showToast("Started a clean sourcing scan."); }
   if (action === "reset-listing") { resetListing(); render(); showToast("Started a clean listing."); }
   if (action === "wizard-back") { state.wizardStep = Math.max(1, state.wizardStep - 1); render(); }
@@ -1017,6 +1274,36 @@ document.addEventListener("click", (event) => {
     render();
     showToast(state.marketplaceConnections[name] ? `${name} marked ready for integration.` : `${name} disconnected.`);
   }
+
+  const billing = event.target.closest("[data-billing]");
+  if (billing) {
+    state.billingCycle = billing.dataset.billing;
+    render();
+  }
+
+  const plan = event.target.closest("[data-plan-interest]");
+  if (plan) {
+    state.membershipInterest = plan.dataset.planInterest;
+    saveJSON("sourcetro_membership_interest", state.membershipInterest);
+    render();
+    showToast(plan.dataset.planInterest === "free" ? "Free is selected for launch." : `${plan.dataset.planInterest === "seller" ? "Seller" : "Pro"} saved as your preferred launch plan. No payment was taken.`);
+  }
+
+  const category = event.target.closest("[data-feedback-category]");
+  if (category) {
+    state.feedbackDraft.category = category.dataset.feedbackCategory;
+    render();
+    document.querySelector("#feedbackMessage")?.focus();
+  }
+
+  const vote = event.target.closest("[data-vote-idea]");
+  if (vote) {
+    const id = vote.dataset.voteIdea;
+    state.feedbackVotes[id] = !state.feedbackVotes[id];
+    saveJSON("sourcetro_feedback_votes", state.feedbackVotes);
+    render();
+    showToast(state.feedbackVotes[id] ? "Your vote was added." : "Your vote was removed.");
+  }
 });
 
 document.addEventListener("input", (event) => {
@@ -1027,6 +1314,8 @@ document.addEventListener("input", (event) => {
     state.sourceScan[scanBound] = event.target.value;
     state.sourceResult = null;
   }
+  const feedbackBound = event.target.dataset.feedbackBind;
+  if (feedbackBound) state.feedbackDraft[feedbackBound] = event.target.value;
   if (["salePrice", "itemCost", "feeRate", "shipCost"].includes(event.target.id)) updateProfit();
   if (event.target.id === "inventorySearch" || event.target.id === "statusFilter") {
     const query = document.querySelector("#inventorySearch")?.value.toLowerCase() || "";
@@ -1070,6 +1359,15 @@ document.addEventListener("change", (event) => {
     render();
     setTroState("listening", "Photo received — add the store price.", 1800);
     showToast("Photo added. Add the store price, then ask Tro to check it.");
+  }
+
+  if (event.target.id === "feedbackScreenshot") {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (state.feedbackScreenshot?.url?.startsWith("blob:")) URL.revokeObjectURL(state.feedbackScreenshot.url);
+    state.feedbackScreenshot = { name: file.name, url: URL.createObjectURL(file) };
+    render();
+    showToast("Screenshot attached to your feedback.");
   }
 });
 
@@ -1115,7 +1413,7 @@ window.addEventListener("hashchange", () => {
 });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=5").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=6").catch(() => {}));
 }
 
 render();
