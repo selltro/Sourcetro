@@ -70,6 +70,36 @@ function showToast(message) {
   showToast.timer = setTimeout(() => toast.classList.remove("show"), 3300);
 }
 
+const troExpressions = [
+  ["happy", "I’m happy to help!"],
+  ["thinking", "Hmm… let me think."],
+  ["listening", "I’m listening."],
+  ["working", "I’m working on it."],
+  ["success", "We did it!"],
+  ["ready", "Hi Nydia! I’m ready."],
+];
+let troExpressionIndex = 0;
+
+function cycleTroExpression() {
+  const character = document.querySelector(".tro-character");
+  const status = document.querySelector(".tro-status");
+  if (!character) return;
+  const [mood, message] = troExpressions[troExpressionIndex];
+  troExpressionIndex = (troExpressionIndex + 1) % troExpressions.length;
+  character.dataset.mood = mood;
+  character.setAttribute("aria-label", message);
+  if (status) status.textContent = message;
+  clearTimeout(cycleTroExpression.timer);
+  if (mood !== "ready") {
+    cycleTroExpression.timer = setTimeout(() => {
+      if (!document.body.contains(character)) return;
+      character.dataset.mood = "ready";
+      character.setAttribute("aria-label", "Tro is ready. Tap Tro to see an expression.");
+      if (status) status.textContent = "Hi Nydia! I’m ready.";
+    }, 2600);
+  }
+}
+
 function setRoute(route) {
   state.route = route;
   location.hash = route;
@@ -132,8 +162,22 @@ function dashboardView() {
         </div>
       </div>
       <div class="hero-lens">
-        <div class="camera-lens"><i></i></div>
-        <small>Tro is ready</small>
+        <button class="tro-character" data-action="tro-expression" data-mood="ready" aria-label="Tro is ready. Tap Tro to see an expression.">
+          <span class="tro-arm tro-arm-left" aria-hidden="true"></span>
+          <span class="tro-arm tro-arm-right" aria-hidden="true"></span>
+          <span class="tro-lens-body" aria-hidden="true">
+            <span class="tro-focus-ring"></span>
+            <span class="tro-glass">
+              <span class="tro-shine"></span>
+              <span class="tro-eye tro-eye-left"></span>
+              <span class="tro-eye tro-eye-right"></span>
+              <span class="tro-cheek tro-cheek-left"></span>
+              <span class="tro-cheek tro-cheek-right"></span>
+              <span class="tro-mouth"></span>
+            </span>
+          </span>
+        </button>
+        <small class="tro-status" aria-live="polite">Hi Nydia! I’m ready.</small>
       </div>
     </div>
 
@@ -570,6 +614,7 @@ document.addEventListener("click", (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (action === "demo-listing") useDemoListing();
   if (action === "open-tro") openTro();
+  if (action === "tro-expression") cycleTroExpression();
   if (action === "reset-listing") { resetListing(); render(); showToast("Started a clean listing."); }
   if (action === "wizard-back") { state.wizardStep = Math.max(1, state.wizardStep - 1); render(); }
   if (action === "wizard-next") { state.wizardStep = Math.min(5, state.wizardStep + 1); render(); }
