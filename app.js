@@ -963,7 +963,7 @@ function membershipView() {
       </div>
       <div class="billing-toggle" role="group" aria-label="Billing cycle">
         <button class="${cycle === "monthly" ? "active" : ""}" data-billing="monthly">Monthly</button>
-        <button class="${cycle === "annual" ? "active" : ""}" data-billing="annual">Annual <span>Save up to $100</span></button>
+        <button class="${cycle === "annual" ? "active" : ""}" data-billing="annual">Annual <span>Save up to $80+</span></button>
       </div>
     </section>
 
