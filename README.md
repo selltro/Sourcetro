@@ -34,11 +34,15 @@ Open SourceTro at: https://selltro.github.io/Sourcetro/
 - Tell Tro feedback, screenshot attachment, voice entry, customer roadmap, and voting
 - Browser storage and installable PWA support
 - Personal Mode for Nydia and Budget Basket, with a simplified source-to-profit dashboard, Tro Today tasks, dead-pile progress, and a connection checklist
+- Resale Workbench with separate "thinking of buying" and "already own it" paths, one-click eBay sold-search research, user-verified comparison ranges, sourcing-place tracking, and no-repeat handoff into the listing creator
+- SourceTro SEO Check with a transparent listing score, missing-detail guidance, buyer-search checklist, and a selling plan for marketplace, price, timing, and source performance
+- Secure Cloudflare Worker connection for live OpenAI photo analysis, item identification, comparison keywords, details-to-verify, and AI-written SEO listing drafts
+- Owner-key protection stored only for the current browser tab; the OpenAI API key remains encrypted in Cloudflare and never enters the public app
 - One-click switching between Personal Mode and the complete SourceTro product; both modes share the same scans and inventory, so no work is erased
 
 ## Important product boundary
 
-This is the working front-end foundation. It stores listing, sourcing, membership-interest, and Tell Tro feedback data in the browser. The Smart Source Scan currently produces a clearly labeled planning estimate so the complete workflow can be tested. Live web comparisons, real visual identification, cloud feedback delivery, direct publishing, live orders, automatic delisting, marketplace analytics, payment information, and real AI generation require secure backend services and approved marketplace/API connections.
+This build stores listing, sourcing, membership-interest, and Tell Tro feedback data in the browser. Personal Mode can securely send item photos to the owner-protected Cloudflare Worker for OpenAI analysis and listing writing. Sold-price evidence still comes from the seller's verified eBay search until the approved eBay API is connected. Direct publishing, live orders, automatic delisting, marketplace analytics, cloud accounts, and payment information require additional approved services.
 
 ## Run locally
 
