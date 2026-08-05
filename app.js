@@ -132,6 +132,7 @@ const roadmapIdeas = [
 
 const state = {
   route: location.hash.replace("#", "") || "dashboard",
+  appMode: loadJSON("sourcetro_app_mode", "personal"),
   wizardStep: 1,
   photos: [],
   listing: { ...listingDefaults },
@@ -225,6 +226,31 @@ function setRoute(route) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function setAppMode(mode) {
+  state.appMode = mode === "full" ? "full" : "personal";
+  saveJSON("sourcetro_app_mode", state.appMode);
+  state.route = "dashboard";
+  location.hash = "dashboard";
+  render();
+  showToast(state.appMode === "personal" ? "Personal Mode is on. All of your SourceTro work is still here." : "Full SourceTro is open. Personal Mode was not erased.");
+}
+
+function applyAppMode() {
+  const personal = state.appMode === "personal";
+  document.body.classList.toggle("personal-mode", personal);
+  document.querySelectorAll("[data-full-only]").forEach((element) => {
+    element.hidden = personal;
+  });
+  const title = document.querySelector("#modeSwitchTitle");
+  const note = document.querySelector("#modeSwitchNote");
+  const action = document.querySelector("#modeSwitchAction");
+  const badge = document.querySelector("#modeBadge");
+  if (title) title.textContent = personal ? "Personal Mode" : "Full SourceTro";
+  if (note) note.textContent = personal ? "Built for Budget Basket" : "All product features";
+  if (action) action.textContent = personal ? "Full app" : "My mode";
+  if (badge) badge.textContent = personal ? "Nydia's Personal Mode" : "Full SourceTro";
+}
+
 function routeTitle(title, subtitle, action = "") {
   return `
     <div class="page-header">
@@ -238,6 +264,7 @@ function routeTitle(title, subtitle, action = "") {
 }
 
 function render() {
+  applyAppMode();
   const routes = {
     dashboard: dashboardView,
     "source-scan": sourceScanView,
@@ -272,6 +299,10 @@ function inventoryStats() {
 }
 
 function dashboardView() {
+  if (state.appMode === "personal") {
+    personalDashboardView();
+    return;
+  }
   const stats = inventoryStats();
   page.innerHTML = `
     <div class="hero-card">
@@ -371,6 +402,80 @@ function dashboardView() {
       <h2>From Source to Sold</h2>
       <p>SourceTro helps resellers source smarter, list faster, stay organized, and sell more. Tro™ is your Trusted Resale Operator—ready by voice or typing whenever you need help.</p>
     </section>`;
+}
+
+function personalDashboardView() {
+  const stats = inventoryStats();
+  const deadPileGoal = 150;
+  const moved = Math.min(deadPileGoal, state.inventory.length);
+  const remaining = Math.max(0, deadPileGoal - moved);
+  const ready = state.inventory.filter((item) => item.status === "Ready").length;
+  const listed = state.inventory.filter((item) => item.status === "Listed").length;
+  const nextActions = [];
+  if (stats.drafts) nextActions.push({ route: "inventory", title: `Finish ${Math.min(3, stats.drafts)} draft${stats.drafts === 1 ? "" : "s"}`, note: "Tro will show only the missing details." });
+  if (stats.stale) nextActions.push({ route: "inventory", title: `Review ${Math.min(3, stats.stale)} older listing${stats.stale === 1 ? "" : "s"}`, note: "Consider a price change or relist." });
+  nextActions.push({ route: "new-listing", title: "List one item from your dead pile", note: "One finished listing is progress." });
+  if (nextActions.length < 3) nextActions.push({ route: "source-scan", title: "Check your next sourced item", note: "See the likely profit before you buy." });
+  if (nextActions.length < 3) nextActions.push({ route: "finances", title: "Record one sale or expense", note: "Keep your actual profit honest." });
+
+  page.innerHTML = `
+    <div class="personal-hero">
+      <div>
+        <div class="personal-kicker"><span>●</span> Private workspace · Budget Basket</div>
+        <h1>Good ${greeting()}, Nydia. What are we selling today?</h1>
+        <p>Your simple eBay workflow—source it, list it, find it, sell it, and know what you made.</p>
+        <div class="personal-hero-actions">
+          <button class="button large" data-route="new-listing">＋ List something I own</button>
+          <button class="button secondary large" data-route="source-scan">◎ Check before I buy</button>
+        </div>
+      </div>
+      <div class="personal-lens-wrap">
+        <button class="tro-character personal-lens" data-action="tro-expression" data-mood="ready" aria-label="Tro is ready. Tap the lens to preview its color states.">
+          <span class="tro-lens-body" aria-hidden="true"><span class="tro-focus-ring"></span><span class="tro-glass"><span class="tro-shine"></span><span class="tro-aperture"></span><span class="tro-core"></span></span></span>
+        </button>
+        <small class="tro-status" aria-live="polite">Ready when you are.</small>
+      </div>
+    </div>
+
+    <div class="personal-flow" aria-label="Your SourceTro personal workflow">
+      <button data-route="source-scan"><span>1</span><b>Source</b><small>Buy or pass</small></button>
+      <i>→</i>
+      <button data-route="new-listing"><span>2</span><b>List</b><small>Photos to draft</small></button>
+      <i>→</i>
+      <button data-route="inventory"><span>3</span><b>Organize</b><small>SKU and bin</small></button>
+      <i>→</i>
+      <button data-route="orders"><span>4</span><b>Sell</b><small>Order and ship</small></button>
+      <i>→</i>
+      <button data-route="finances"><span>5</span><b>Profit</b><small>What you made</small></button>
+    </div>
+
+    <div class="personal-summary-grid">
+      ${statCard("Dead pile moved", `${moved} / ${deadPileGoal}`, `${remaining} items left to process`, "▦")}
+      ${statCard("Drafts", stats.drafts, "Listings waiting for you", "✎")}
+      ${statCard("Ready for eBay", ready, "Reviewed and ready", "↗")}
+      ${statCard("Live / sold", `${listed} / ${stats.sold}`, "Your real selling progress", "✓")}
+    </div>
+
+    <div class="personal-main-grid">
+      <section class="panel tro-today-panel">
+        <div class="panel-header"><div><p class="eyebrow">Tro Today</p><h2>Only three things—not everything</h2><span class="muted">Small actions to help turn your inventory into income.</span></div></div>
+        <div class="personal-task-list">
+          ${nextActions.slice(0, 3).map((item, index) => `<button data-route="${item.route}"><span>${index + 1}</span><div><strong>${item.title}</strong><small>${item.note}</small></div><b>Start →</b></button>`).join("")}
+        </div>
+      </section>
+
+      <section class="panel personal-ready-panel">
+        <div class="panel-header"><div><p class="eyebrow">Make it real</p><h2>Your connection checklist</h2></div></div>
+        <div class="connection-checklist">
+          <div class="complete"><span>✓</span><div><strong>Personal workspace</strong><small>Your scans and inventory stay together.</small></div></div>
+          <div><span>1</span><div><strong>Connect live AI</strong><small>Real photo identification and listing writing.</small></div><b>Next</b></div>
+          <div><span>2</span><div><strong>Connect your eBay</strong><small>Create drafts, publish, and receive sales.</small></div><b>Next</b></div>
+          <div><span>3</span><div><strong>Test five real items</strong><small>Then adjust the process to fit how you work.</small></div></div>
+        </div>
+        <p class="personal-safety-note"><strong>Nothing was erased.</strong> Switch to Full SourceTro anytime to see memberships, customer feedback, and future marketplace features.</p>
+      </section>
+    </div>
+  `;
 }
 
 function greeting() {
@@ -1378,6 +1483,7 @@ document.addEventListener("click", (event) => {
   }
 
   const action = event.target.closest("[data-action]")?.dataset.action;
+  if (action === "toggle-mode") { setAppMode(state.appMode === "personal" ? "full" : "personal"); return; }
   if (action === "demo-listing") useDemoListing();
   if (action === "demo-source") useDemoScan();
   if (action === "open-tro") openTro();
