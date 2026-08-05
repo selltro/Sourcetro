@@ -26,11 +26,13 @@ Open SourceTro at: https://selltro.github.io/Sourcetro/
 - Orders and shipping workspaces
 - Analytics and profit estimator
 - Tro resale assistant drawer
+- Free, Seller, and Pro membership comparison with monthly and annual pricing
+- Tell Tro feedback, screenshot attachment, voice entry, customer roadmap, and voting
 - Browser storage and installable PWA support
 
 ## Important product boundary
 
-This is the working front-end foundation. It stores listing and sourcing data in the browser. The Smart Source Scan currently produces a clearly labeled planning estimate so the complete workflow can be tested. Live web comparisons, real visual identification, direct publishing, live orders, automatic delisting, marketplace analytics, payment information, and real AI generation require secure backend services and approved marketplace/API connections.
+This is the working front-end foundation. It stores listing, sourcing, membership-interest, and Tell Tro feedback data in the browser. The Smart Source Scan currently produces a clearly labeled planning estimate so the complete workflow can be tested. Live web comparisons, real visual identification, cloud feedback delivery, direct publishing, live orders, automatic delisting, marketplace analytics, payment information, and real AI generation require secure backend services and approved marketplace/API connections.
 
 ## Run locally
 
