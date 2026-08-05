@@ -33,6 +33,8 @@ Open SourceTro at: https://selltro.github.io/Sourcetro/
 - Free, Source ($9.99), Seller ($24.99), and Pro ($39.99) membership comparison with monthly and annual pricing
 - Tell Tro feedback, screenshot attachment, voice entry, customer roadmap, and voting
 - Browser storage and installable PWA support
+- Personal Mode for Nydia and Budget Basket, with a simplified source-to-profit dashboard, Tro Today tasks, dead-pile progress, and a connection checklist
+- One-click switching between Personal Mode and the complete SourceTro product; both modes share the same scans and inventory, so no work is erased
 
 ## Important product boundary
 
