@@ -1,9 +1,9 @@
-const CACHE = "sourcetro-v6-membership-tell-tro";
+const CACHE = "sourcetro-v7-trofit-source-tools";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=6",
-  "./app.js?v=6",
+  "./styles.css?v=7",
+  "./app.js?v=7",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
