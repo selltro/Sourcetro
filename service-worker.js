@@ -1,9 +1,9 @@
-const CACHE = "sourcetro-v5-smart-source-scan";
+const CACHE = "sourcetro-v6-membership-tell-tro";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=5",
-  "./app.js?v=5",
+  "./styles.css?v=6",
+  "./app.js?v=6",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
