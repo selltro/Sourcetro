@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
     <div class="app-shell">
@@ -39,6 +39,8 @@
           <button class="nav-item" data-route="analytics"><span>⌁</span> Analytics</button>
           <button class="nav-item" data-route="finances"><span>$</span> Finances</button>
           <button class="nav-item" data-route="marketplaces"><span>⇄</span> Marketplaces</button>
+          <button class="nav-item" data-route="membership"><span>◇</span> Membership</button>
+          <button class="nav-item tell-tro-nav" data-route="tell-tro"><span>✦</span> Tell Tro</button>
         </nav>
 
         <div class="sidebar-bottom">
@@ -98,7 +100,12 @@
       </form>
     </aside>
 
+    <button class="tell-tro-float" data-route="tell-tro" aria-label="Tell Tro what you think">
+      <span class="tro-orb"><i></i></span>
+      <span><strong>Tell Tro</strong><small>Help shape SourceTro</small></span>
+    </button>
+
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
   </body>
 </html>
