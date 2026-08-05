@@ -1,0 +1,201 @@
+const SOURCETRO_ORIGIN = "https://selltro.github.io";
+
+function headers(origin = "") {
+  return {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": origin === SOURCETRO_ORIGIN ? origin : SOURCETRO_ORIGIN,
+    "Access-Control-Allow-Headers": "Content-Type, X-SourceTro-Key",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
+
+function reply(data, status = 200, origin = "") {
+  return new Response(JSON.stringify(data), { status, headers: headers(origin) });
+}
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const origin = request.headers.get("Origin") || "";
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: headers(origin) });
+    }
+
+    if (origin && origin !== SOURCETRO_ORIGIN) {
+      return reply({ error: "Website not authorized." }, 403, origin);
+    }
+
+    if (request.method === "GET") {
+      return reply({
+        ok: true,
+        service: "SourceTro Personal API",
+        openaiConnected: Boolean(env.OPENAI_API_KEY),
+        ownerProtection: Boolean(env.SOURCETRO_OWNER_KEY),
+        transport: "secure-body-v12",
+        message: "SourceTro secure AI connection is ready.",
+      }, 200, origin);
+    }
+
+    if (request.method !== "POST" || url.pathname !== "/analyze") {
+      return reply({ error: "Not found." }, 404, origin);
+    }
+
+    if (!env.OPENAI_API_KEY || !env.SOURCETRO_OWNER_KEY) {
+      return reply({ error: "SourceTro security setup is not complete." }, 503, origin);
+    }
+
+    try {
+      const body = await request.json();
+      const ownerKey = request.headers.get("X-SourceTro-Key") || String(body.ownerKey || "");
+
+      if (!ownerKey || ownerKey !== env.SOURCETRO_OWNER_KEY) {
+        return reply({ error: "Owner authorization required." }, 401, origin);
+      }
+
+      const images = Array.isArray(body.images) ? body.images.slice(0, 4) : [];
+      const notes = String(body.notes || "").slice(0, 4000);
+      const mode = body.mode === "sourcing" ? "Thinking of buying" : "Already owned";
+
+      if (!images.length && !notes.trim()) {
+        return reply({ error: "Please include an item photograph or details." }, 400, origin);
+      }
+
+      const content = [
+        {
+          type: "input_text",
+          text: `
+Analyze this resale item for SourceTro Personal Mode.
+
+Seller mode: ${mode}
+Purchase cost: ${body.purchaseCost ?? "Not provided"}
+Desired profit: ${body.targetProfit ?? "Not provided"}
+Seller notes: ${notes || "None"}
+
+Identify only details supported by the photographs or seller notes.
+Do not invent a brand, size, material, condition, sold price, or authenticity.
+Do not guarantee authenticity.
+Create an eBay SEO title of no more than 80 characters.
+Create accurate search words for finding comparable sold listings.
+Clearly explain when more information or photographs are needed.
+          `.trim(),
+        },
+        ...images.map((image) => ({ type: "input_image", image_url: image, detail: "high" })),
+      ];
+
+      const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-5-mini",
+          store: false,
+          max_output_tokens: 2000,
+          input: [
+            {
+              role: "developer",
+              content: [{
+                type: "input_text",
+                text: "You are Tro, SourceTro's careful resale assistant. Produce accurate, practical listing help. Never claim live sold comparisons unless the seller supplied them.",
+              }],
+            },
+            { role: "user", content },
+          ],
+          text: {
+            format: {
+              type: "json_schema",
+              name: "sourcetro_item_analysis",
+              strict: true,
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  identification: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      brand: { type: "string" },
+                      item_type: { type: "string" },
+                      category: { type: "string" },
+                      color: { type: "string" },
+                      size: { type: "string" },
+                      style: { type: "string" },
+                      condition: { type: "string" },
+                      visible_flaws: { type: "array", items: { type: "string" } },
+                      confidence: { type: "string" },
+                    },
+                    required: ["brand", "item_type", "category", "color", "size", "style", "condition", "visible_flaws", "confidence"],
+                  },
+                  research: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      ebay_sold_search: { type: "string" },
+                      search_keywords: { type: "array", items: { type: "string" } },
+                      details_to_verify: { type: "array", items: { type: "string" } },
+                    },
+                    required: ["ebay_sold_search", "search_keywords", "details_to_verify"],
+                  },
+                  evaluation: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      demand: { type: "string" },
+                      sourcing_decision: { type: "string" },
+                      explanation: { type: "string" },
+                    },
+                    required: ["demand", "sourcing_decision", "explanation"],
+                  },
+                  listing: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      seo_title: { type: "string" },
+                      description: { type: "string" },
+                      item_specifics: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          additionalProperties: false,
+                          properties: { name: { type: "string" }, value: { type: "string" } },
+                          required: ["name", "value"],
+                        },
+                      },
+                      photo_checklist: { type: "array", items: { type: "string" } },
+                    },
+                    required: ["seo_title", "description", "item_specifics", "photo_checklist"],
+                  },
+                  warnings: { type: "array", items: { type: "string" } },
+                },
+                required: ["identification", "research", "evaluation", "listing", "warnings"],
+              },
+            },
+          },
+        }),
+      });
+
+      const result = await openAIResponse.json();
+
+      if (!openAIResponse.ok) {
+        console.error("OpenAI request failed:", result);
+        return reply({ error: "Tro could not analyze the item. Please try again." }, 502, origin);
+      }
+
+      const outputText = result.output
+        ?.flatMap((item) => item.content || [])
+        .find((item) => item.type === "output_text")?.text;
+
+      if (!outputText) {
+        return reply({ error: "Tro did not return a completed analysis." }, 502, origin);
+      }
+
+      return reply({ ok: true, analysis: JSON.parse(outputText), usage: result.usage || null }, 200, origin);
+    } catch (error) {
+      console.error("SourceTro error:", error);
+      return reply({ error: "SourceTro encountered an unexpected error." }, 500, origin);
+    }
+  },
+};
