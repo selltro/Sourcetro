@@ -40,6 +40,18 @@ const sourceScanDefaults = {
   shippingCost: "7.50",
   feeRate: "14",
   marketplace: "eBay",
+  barcode: "",
+};
+
+const troFitDefaults = {
+  monthlyGoal: "500",
+  sourcingBudget: "150",
+  minimumProfit: "20",
+  inventoryLimit: "150",
+  sellSpeed: "Within 60 days",
+  weeklyHours: "5",
+  experience: "Getting started",
+  primaryMarketplace: "eBay",
 };
 
 const membershipPlans = [
@@ -52,26 +64,42 @@ const membershipPlans = [
     description: "Learn the SourceTro flow and create your first listings without a card.",
     features: [
       "5 Smart Source Scans each month",
-      "10 AI-created listings each month",
+      "5 AI-created listing drafts each month",
       "1 marketplace",
-      "Basic inventory and bin tracking",
+      "Store up to 25 inventory items",
       "Talk to Tro and Tell Tro",
+    ],
+  },
+  {
+    id: "source",
+    name: "Source",
+    eyebrow: "For casual sellers",
+    monthly: 9.99,
+    annual: 99,
+    description: "An affordable way to source confidently and turn a small inventory into listings.",
+    features: [
+      "50 Smart Source Scans each month",
+      "25 new items each month",
+      "Cross-list to 2 marketplaces",
+      "Store up to 100 inventory items",
+      "TroFit, TroScore, barcode lookup, and Photo Prep",
+      "Voice help and bin tracking",
     ],
   },
   {
     id: "seller",
     name: "Seller",
     eyebrow: "For active resellers",
-    monthly: 29.99,
-    annual: 299,
+    monthly: 24.99,
+    annual: 249,
     description: "A complete weekly workflow for sourcing, listing, cross-listing, and staying organized.",
     features: [
+      "150 Smart Source Scans each month",
       "100 new items each month",
-      "100 Smart Source Scans each month",
       "Cross-list to 4 marketplaces",
-      "100 background removals each month",
-      "Auto-delisting when an item sells",
-      "Voice help, bin tracking, and profit reports",
+      "Store up to 500 inventory items",
+      "150 background removals each month",
+      "Auto-delisting, batch tools, and profit reports",
     ],
     featured: true,
   },
@@ -84,9 +112,10 @@ const membershipPlans = [
     description: "More volume, stronger insights, and time-saving tools for serious resellers.",
     features: [
       "250 new items each month",
-      "250 Smart Source Scans each month",
+      "400 Smart Source Scans each month",
       "All supported marketplaces",
-      "300 background removals each month",
+      "Store up to 2,000 inventory items",
+      "400 background removals each month",
       "Bulk tools and Dead-Pile Rescue",
       "Advanced analytics, mileage, and tax reports",
       "Automations and priority support",
@@ -95,10 +124,10 @@ const membershipPlans = [
 ];
 
 const roadmapIdeas = [
-  { id: "best-market", title: "Best marketplace recommendation", copy: "Compare estimated profit and selling speed before choosing where to list.", status: "Planned", votes: 38 },
-  { id: "dead-pile", title: "Dead-Pile Rescue", copy: "Photograph several unlisted items and let Tro prepare the drafts in a batch.", status: "Under review", votes: 31 },
+  { id: "trofit", title: "TroFit + Personal TroScore", copy: "Personalize every sourcing decision to the reseller’s budget, profit goal, time, storage, and marketplace.", status: "Now live", votes: 48 },
+  { id: "source-stack", title: "SourceTro Batch Scan", copy: "Photograph several items and organize them into a sourcing or dead-pile queue.", status: "Building", votes: 31 },
   { id: "tro-today", title: "Tro Today", copy: "Get three simple daily actions that move your resale business forward.", status: "Building", votes: 24 },
-  { id: "scan", title: "Smart Source Scan", copy: "Estimate value, profit, ROI, and whether to buy before spending money.", status: "Now live", votes: 56 },
+  { id: "barcode", title: "SourceTro Barcode Lookup", copy: "Use a UPC or model number as another clue for identification and comparisons.", status: "Planned", votes: 34 },
 ];
 
 const state = {
@@ -112,6 +141,8 @@ const state = {
   sourceScan: { ...sourceScanDefaults },
   sourcePhoto: null,
   sourceResult: null,
+  troFit: loadJSON("sourcetro_trofit", { ...troFitDefaults }),
+  batchItems: [],
   scanHistory: loadJSON("sourcetro_scan_history", []),
   financeRecords: loadJSON("sourcetro_finance_records", []),
   billingCycle: "monthly",
@@ -210,6 +241,7 @@ function render() {
   const routes = {
     dashboard: dashboardView,
     "source-scan": sourceScanView,
+    trofit: troFitView,
     "new-listing": listingView,
     inventory: inventoryView,
     orders: ordersView,
@@ -297,7 +329,7 @@ function dashboardView() {
         <div class="quick-grid">
           ${quickAction("source-scan", "◎", "Check an item", "See whether it may be worth buying")}
           ${quickAction("new-listing", "↔", "Measure clothing", "Save every measurement")}
-          ${quickAction("inventory", "▦", "Find an item", "Search by SKU or storage bin")}
+          ${quickAction("trofit", "◈", "Set my TroFit", "Make every buy-or-pass answer personal")}
           <button class="quick-action" data-action="open-tro"><span class="quick-icon">◉</span><strong>Talk to Tro</strong><small>Speak when you do not want to type</small></button>
         </div>
       </section>
@@ -315,7 +347,7 @@ function dashboardView() {
 
     <div class="section-title"><p class="eyebrow">One smooth system</p><h2>Everything a reseller needs</h2></div>
     <div class="feature-strip">
-      ${featureCard("◎", "Source smarter", "Photo identification, sold-price comparisons, demand, ROI, and buy-or-pass guidance.")}
+      ${featureCard("◎", "Source smarter", "TroFit, Personal TroScore, comparison evidence, demand, ROI, and personal buy-or-pass guidance.")}
       ${featureCard("✦", "List faster", "Titles, descriptions, item specifics, measurements, and pricing guidance.")}
       ${featureCard("⇄", "Cross-listing", "Prepare one item for eBay, Poshmark, Mercari, and Depop.")}
       ${featureCard("▦", "Inventory control", "Know the exact bin and SKU for every item.")}
@@ -362,6 +394,56 @@ function featureCard(icon, title, copy) {
   return `<article class="feature-card"><span>${icon}</span><h3>${title}</h3><p>${copy}</p></article>`;
 }
 
+function troFitView() {
+  const fit = state.troFit;
+  page.innerHTML = `
+    ${routeTitle("My TroFit™", "Tell Tro what makes an item worth buying for you—not for an average reseller.")}
+    <section class="trofit-hero">
+      <div class="trofit-score-preview"><span>◈</span><strong>Personal decisions</strong><small>Your goals shape every TroScore™</small></div>
+      <div><p class="eyebrow">SourceTro exclusive</p><h2>The same item should not receive the same answer for everyone.</h2><p>TroFit considers your available cash, desired profit, storage, time, experience, preferred marketplace, and how quickly you want items to sell. After real sales are connected, TroFit will also learn from your own results.</p></div>
+    </section>
+    <div class="trofit-layout">
+      <section class="panel trofit-form">
+        <div class="panel-header"><div><p class="eyebrow">Your resale profile</p><h2>What does a good buy look like for you?</h2></div></div>
+        <div class="form-grid">
+          ${troFitField("monthlyGoal", "Monthly income goal", 'type="number" min="0" step="25" inputmode="decimal"')}
+          ${troFitField("sourcingBudget", "Monthly sourcing budget", 'type="number" min="0" step="10" inputmode="decimal"')}
+          ${troFitField("minimumProfit", "Minimum profit per item", 'type="number" min="0" step="1" inputmode="decimal"')}
+          ${troFitField("inventoryLimit", "Maximum items I can store", 'type="number" min="1" step="1" inputmode="numeric"')}
+          ${troFitField("weeklyHours", "Hours I can spend each week", 'type="number" min="1" max="80" step="1" inputmode="numeric"')}
+          <div class="field"><label>How quickly should items sell?</label><select data-trofit-bind="sellSpeed">${["Within 30 days", "Within 60 days", "Within 90 days", "I can wait for more profit"].map((x) => `<option ${fit.sellSpeed === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+          <div class="field"><label>Reselling experience</label><select data-trofit-bind="experience">${["Getting started", "Casual seller", "Active reseller", "Full-time reseller"].map((x) => `<option ${fit.experience === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+          <div class="field"><label>Primary marketplace</label><select data-trofit-bind="primaryMarketplace">${["eBay", "Poshmark", "Mercari", "Depop", "Facebook Marketplace"].map((x) => `<option ${fit.primaryMarketplace === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+        </div>
+        <button class="button large" data-action="save-trofit">Save my TroFit</button>
+      </section>
+      <aside class="panel trofit-summary">
+        <p class="eyebrow">Your current buying rules</p>
+        <h2>Tro will look for:</h2>
+        <div class="fit-rule"><span>$</span><div><strong>At least ${money(fit.minimumProfit)} profit</strong><small>After estimated fees and shipping</small></div></div>
+        <div class="fit-rule"><span>◷</span><div><strong>${esc(fit.sellSpeed)}</strong><small>A speed that fits how quickly you need cash back</small></div></div>
+        <div class="fit-rule"><span>▦</span><div><strong>Room for ${esc(fit.inventoryLimit)} items</strong><small>Tro will warn when storage is getting tight</small></div></div>
+        <div class="fit-rule"><span>⇄</span><div><strong>${esc(fit.primaryMarketplace)} first</strong><small>Then compare other marketplaces when useful</small></div></div>
+        <button class="button secondary full" data-route="source-scan">Use TroFit in Smart Scan →</button>
+      </aside>
+    </div>
+    <section class="panel why-trofit"><div class="panel-header"><div><p class="eyebrow">How Personal TroScore works</p><h2>A transparent answer—not a mystery number</h2></div></div><div class="score-factor-grid">
+      ${scoreFactor("Profit fit", "Does the expected net profit meet your rule?")}
+      ${scoreFactor("Cash fit", "Does the purchase fit your sourcing budget?")}
+      ${scoreFactor("Speed fit", "Is demand strong enough for your timeline?")}
+      ${scoreFactor("Space fit", "Is the item worth the storage it will use?")}
+      ${scoreFactor("Marketplace fit", "Where should this item perform best?")}
+    </div></section>`;
+}
+
+function troFitField(name, label, attrs = "") {
+  return `<div class="field"><label>${label}</label><input data-trofit-bind="${name}" value="${esc(state.troFit[name])}" ${attrs} /></div>`;
+}
+
+function scoreFactor(title, copy) {
+  return `<article><span>✓</span><strong>${title}</strong><small>${copy}</small></article>`;
+}
+
 function sourceScanView() {
   const scan = state.sourceScan;
   page.innerHTML = `
@@ -380,6 +462,7 @@ function sourceScanView() {
         <div class="form-grid">
           ${scanField("itemName", "What is it?", 'placeholder="Example: Levi’s 721 jeans"')}
           ${scanField("brand", "Brand", 'placeholder="Example: Levi’s"')}
+          <div class="field barcode-field"><label>Barcode, UPC, or model number (optional)</label><div><input data-scan-bind="barcode" value="${esc(scan.barcode)}" inputmode="numeric" placeholder="Scan or type the number" /><button class="button secondary" data-action="barcode-preview">Look up</button></div></div>
           <div class="field"><label>Category</label><select data-scan-bind="category">${["Women's Clothing", "Men's Clothing", "Kids' Clothing", "Shoes", "Handbags", "Accessories", "Electronics", "Collectibles", "Home", "Other"].map((x) => `<option ${scan.category === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
           <div class="field"><label>Condition</label><select data-scan-bind="condition">${["New with tags", "New without tags", "Pre-owned - Excellent", "Pre-owned - Good", "Pre-owned - Fair"].map((x) => `<option ${scan.condition === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
           ${scanField("purchasePrice", "Store price", 'type="number" min="0" step=".01" inputmode="decimal" placeholder="12.00"')}
@@ -400,6 +483,17 @@ function sourceScanView() {
       </aside>
     </div>
 
+    <section class="panel source-tools-panel">
+      <div class="panel-header"><div><p class="eyebrow">SourceTro time-savers</p><h2>More ways to start</h2><span class="muted">Original SourceTro workflows inspired by the real problems resellers face.</span></div></div>
+      <div class="source-tool-grid">
+        <article><span class="source-tool-icon">▦</span><h3>SourceTro Batch Scan</h3><p>Add several photos from a thrift trip or dead pile. Tro organizes a queue and shows what still needs attention.</p><label class="button secondary batch-picker">Add several photos<input id="batchPhotoInput" type="file" accept="image/*" multiple /></label></article>
+        <article><span class="source-tool-icon">▥</span><h3>Barcode Lookup</h3><p>Use a UPC, ISBN, or model number as another clue. Live product matching will turn on with the secure lookup service.</p><button class="button secondary" data-action="focus-barcode">Enter a barcode</button></article>
+        <article><span class="source-tool-icon">✦</span><h3>Photo Prep</h3><p>Crop, brighten, remove the background, and check photo quality before creating the listing.</p><button class="button secondary" data-route="new-listing">Prepare listing photos</button></article>
+        <article><span class="source-tool-icon">◇</span><h3>Authenticity Risk Review</h3><p>Tro flags warning signs and questions to check. It never guarantees authenticity from a photo.</p><button class="button secondary" data-action="risk-review-info">How it protects sellers</button></article>
+      </div>
+      ${batchQueueMarkup()}
+    </section>
+
     ${state.scanHistory.length ? `
       <section class="panel scan-history">
         <div class="panel-header"><div><h2>Recent sourcing decisions</h2><span class="muted">Saved on this device</span></div></div>
@@ -409,6 +503,11 @@ function sourceScanView() {
 
 function scanField(name, label, attrs = "") {
   return `<div class="field"><label>${label}</label><input data-scan-bind="${name}" value="${esc(state.sourceScan[name])}" ${attrs} /></div>`;
+}
+
+function batchQueueMarkup() {
+  if (!state.batchItems.length) return "";
+  return `<div class="batch-queue"><div><strong>${state.batchItems.length} item${state.batchItems.length === 1 ? "" : "s"} in your SourceTro queue</strong><small>Photos are ready for identification. Add an item name or use each one to start a listing.</small></div><div class="batch-thumbs">${state.batchItems.slice(0, 8).map((item, index) => `<button data-batch-item="${index}" title="Use ${esc(item.name)}"><img src="${item.url}" alt="Batch item ${index + 1}" /><span>${index + 1}</span></button>`).join("")}</div></div>`;
 }
 
 function sourceWaitingMarkup() {
@@ -432,6 +531,10 @@ function sourceResultMarkup(result) {
       <span class="result-lens">◎</span>
       <div><small>Likely item · ${result.confidence}% planning confidence</small><h2>${esc(result.identifiedItem)}</h2><p>${esc(result.category)} · ${esc(result.condition)}</p></div>
     </div>
+    <div class="personal-score">
+      <div class="score-ring" style="--score:${result.troScore}"><strong>${result.troScore}</strong><small>/100</small></div>
+      <div><small>Personal TroScore™</small><h3>${result.fitLabel}</h3><p>${result.fitReason}</p></div>
+    </div>
     <div class="sold-range">
       <small>Estimated resale range</small>
       <strong>${money(result.soldLow)}–${money(result.soldHigh)}</strong>
@@ -444,6 +547,15 @@ function sourceResultMarkup(result) {
       ${resultMetric("Estimated time to sell", `${result.days} days`)}
       ${resultMetric("Maximum buy price", money(result.maxBuy))}
       ${resultMetric("Fees + shipping", money(result.fees + result.shipping))}
+    </div>
+    <div class="tro-reason-panel">
+      <div class="comparison-heading"><h3>Why Tro said it</h3><span>Based on your TroFit</span></div>
+      ${result.scoreFactors.map((factor) => `<div class="score-bar"><span>${factor.label}</span><i><b style="width:${factor.value}%"></b></i><strong>${factor.value}</strong></div>`).join("")}
+    </div>
+    <div class="result-advice-grid">
+      <article><small>Best marketplace preview</small><strong>${result.bestMarketplace}</strong><p>${result.marketplaceReason}</p></article>
+      <article><small>Offer Guide</small><strong>Try ${money(result.openingOffer)}</strong><p>Do not pay more than ${money(result.maxBuy)} based on your ${money(state.troFit.minimumProfit)} minimum-profit rule.</p></article>
+      <article class="risk-${result.riskTone}"><small>Authenticity Risk Review</small><strong>${result.riskLevel}</strong><p>${result.riskCopy}</p></article>
     </div>
     <div class="comparison-preview">
       <div class="comparison-heading"><h3>Sold-comparison preview</h3><span>Sample—not live</span></div>
@@ -485,8 +597,26 @@ function analyzeSourceScan() {
     const roi = purchasePrice > 0 ? Math.round((profit / purchasePrice) * 100) : 0;
     const sellThrough = Math.min(88, Math.max(28, 49 + (knownBrand ? 24 : 0) + (scan.condition.includes("Excellent") || scan.condition.includes("New") ? 7 : 0)));
     const days = sellThrough >= 70 ? 21 : sellThrough >= 50 ? 38 : 62;
-    const targetProfit = Math.max(12, median * .35);
+    const targetProfit = Math.max(Number(state.troFit.minimumProfit || 0), 8);
     const maxBuy = Math.max(0, Math.floor(median - fees - shipping - targetProfit));
+    const budget = Math.max(Number(state.troFit.sourcingBudget || 0), 1);
+    const inventoryLimit = Math.max(Number(state.troFit.inventoryLimit || 1), 1);
+    const speedTarget = state.troFit.sellSpeed.includes("30") ? 30 : state.troFit.sellSpeed.includes("60") ? 60 : state.troFit.sellSpeed.includes("90") ? 90 : 120;
+    const profitFactor = Math.max(0, Math.min(100, Math.round((profit / Math.max(targetProfit, 1)) * 100)));
+    const cashFactor = purchasePrice ? Math.max(0, Math.min(100, Math.round((1 - purchasePrice / budget) * 115))) : 70;
+    const speedFactor = Math.max(0, Math.min(100, Math.round((speedTarget / Math.max(days, 1)) * 75)));
+    const spaceFactor = Math.max(0, Math.min(100, Math.round((1 - state.inventory.length / inventoryLimit) * 100)));
+    const marketplaceFactor = knownBrand ? 88 : scan.marketplace === state.troFit.primaryMarketplace ? 78 : 67;
+    const troScore = Math.round(profitFactor * .35 + cashFactor * .15 + speedFactor * .2 + spaceFactor * .1 + marketplaceFactor * .2);
+    const bestMarketplace = scan.category.includes("Clothing") || scan.category === "Shoes" ? (knownBrand ? "eBay" : "Poshmark") : scan.category === "Home" ? "Facebook Marketplace" : "eBay";
+    const marketplaceReason = bestMarketplace === "eBay" ? "Strong search demand and useful sold-price history for this item type." : bestMarketplace === "Poshmark" ? "A clothing-focused audience may help this item get noticed." : "Local pickup may protect profit on a bulky item.";
+    const openingOffer = Math.max(0, Math.floor(Math.min(purchasePrice ? purchasePrice * .8 : maxBuy * .8, maxBuy)));
+    const elevatedRisk = /coach|gucci|louis|chanel|prada|rolex|supreme/i.test(`${scan.brand} ${itemName}`) || ["Handbags", "Collectibles"].includes(scan.category);
+    const riskLevel = elevatedRisk ? "Review recommended" : "No major photo-based flags";
+    const riskTone = elevatedRisk ? "review" : "low";
+    const riskCopy = elevatedRisk ? "Check serial details, stitching, hardware, seller history, and professional authentication before relying on the brand name." : "Still verify labels, condition, model details, and seller information before buying.";
+    const fitLabel = troScore >= 80 ? "Excellent fit for your goals" : troScore >= 65 ? "Good fit with a few checks" : troScore >= 45 ? "Borderline for your goals" : "Poor fit for your goals";
+    const fitReason = `This score uses your ${money(targetProfit)} minimum profit, ${money(budget)} monthly sourcing budget, ${state.troFit.sellSpeed.toLowerCase()} preference, and current inventory space.`;
     let recommendation = "PASS";
     let tone = "pass";
     let reason = `At ${money(purchasePrice)}, the expected margin is too thin for the time and risk.`;
@@ -494,14 +624,14 @@ function analyzeSourceScan() {
       recommendation = `BUY ONLY BELOW ${money(maxBuy)}`;
       tone = "caution";
       reason = "Enter the store price for a personal buy-or-pass answer. This is Tro’s current maximum target cost.";
-    } else if (profit >= 25 && roi >= 100 && sellThrough >= 55) {
+    } else if (profit >= targetProfit && troScore >= 72) {
       recommendation = "GREAT BUY";
       tone = "buy";
-      reason = `The estimated ${money(profit)} profit, ${roi}% ROI, and ${sellThrough}% demand make this a strong sourcing candidate.`;
-    } else if (profit >= 12 && roi >= 45) {
+      reason = `The estimated ${money(profit)} profit meets your personal goal, and the ${troScore}/100 TroScore fits your budget, speed, and storage preferences.`;
+    } else if (profit >= targetProfit * .6 && troScore >= 50) {
       recommendation = "WORTH CONSIDERING";
       tone = "consider";
-      reason = `The numbers can work, but check condition, flaws, and how quickly you want your money back.`;
+      reason = `The numbers may work, but this falls short of at least one TroFit preference. Review the evidence before buying.`;
     } else if (purchasePrice <= maxBuy && profit > 0) {
       recommendation = `ONLY BUY BELOW ${money(maxBuy)}`;
       tone = "caution";
@@ -528,6 +658,22 @@ function analyzeSourceScan() {
       recommendation,
       tone,
       reason,
+      troScore,
+      fitLabel,
+      fitReason,
+      bestMarketplace,
+      marketplaceReason,
+      openingOffer,
+      riskLevel,
+      riskTone,
+      riskCopy,
+      scoreFactors: [
+        { label: "Profit fit", value: profitFactor },
+        { label: "Cash fit", value: cashFactor },
+        { label: "Speed fit", value: speedFactor },
+        { label: "Space fit", value: spaceFactor },
+        { label: "Marketplace fit", value: marketplaceFactor },
+      ],
       sampleComps: [
         { title: `${scan.brand || "Similar"} ${itemName}`, marketplace: "eBay", condition: "Pre-owned", price: soldLow },
         { title: `${itemName} comparable`, marketplace: scan.marketplace === "All marketplaces" ? "Poshmark" : scan.marketplace, condition: scan.condition, price: median },
@@ -547,10 +693,28 @@ function useDemoScan() {
 }
 
 function resetSourceScan() {
-  if (state.sourcePhoto?.url?.startsWith("blob:")) URL.revokeObjectURL(state.sourcePhoto.url);
+  if (state.sourcePhoto?.url?.startsWith("blob:") && !state.sourcePhoto.fromBatch) URL.revokeObjectURL(state.sourcePhoto.url);
   state.sourcePhoto = null;
   state.sourceScan = { ...sourceScanDefaults };
   state.sourceResult = null;
+}
+
+function saveTroFit() {
+  saveJSON("sourcetro_trofit", state.troFit);
+  setTroState("success", "Your TroFit is saved.", 2200);
+  render();
+  showToast("TroFit saved. Future Smart Scans will use your personal buying rules.");
+}
+
+function previewBarcodeLookup() {
+  const barcode = state.sourceScan.barcode.trim();
+  if (!barcode) {
+    showToast("Enter a UPC, ISBN, or model number first.");
+    document.querySelector('[data-scan-bind="barcode"]')?.focus();
+    return;
+  }
+  setTroState("thinking", "Barcode clue received…", 1800);
+  showToast(`Barcode ${barcode} saved as an identification clue. Live matching requires the secure lookup connection.`);
 }
 
 function saveSourceDecision() {
@@ -963,7 +1127,7 @@ function membershipView() {
       </div>
       <div class="billing-toggle" role="group" aria-label="Billing cycle">
         <button class="${cycle === "monthly" ? "active" : ""}" data-billing="monthly">Monthly</button>
-        <button class="${cycle === "annual" ? "active" : ""}" data-billing="annual">Annual <span>Save up to $80+</span></button>
+        <button class="${cycle === "annual" ? "active" : ""}" data-billing="annual">Annual <span>Save up to $80</span></button>
       </div>
     </section>
 
@@ -976,16 +1140,17 @@ function membershipView() {
     <section class="panel plan-comparison">
       <div class="panel-header"><div><p class="eyebrow">Compare at a glance</p><h2>What changes with each plan</h2></div></div>
       <div class="table-wrap"><table class="comparison-table">
-        <thead><tr><th>Feature</th><th>Free</th><th>Seller</th><th>Pro</th></tr></thead>
+        <thead><tr><th>Feature</th><th>Free</th><th>Source</th><th>Seller</th><th>Pro</th></tr></thead>
         <tbody>
-          ${comparisonRow("New items each month", "10 AI listings", "100", "250")}
-          ${comparisonRow("Smart Source Scans", "5", "100", "250")}
-          ${comparisonRow("Marketplace access", "1", "4", "All supported")}
-          ${comparisonRow("Background removals", "—", "100", "300")}
-          ${comparisonRow("Auto-delisting", "—", "Included", "Included")}
-          ${comparisonRow("Bulk tools & Dead-Pile Rescue", "—", "—", "Included")}
-          ${comparisonRow("Reports", "Basic inventory", "Basic profit", "Advanced, mileage & tax")}
-          ${comparisonRow("Talk to Tro & Tell Tro", "Included", "Included", "Priority support")}
+          ${comparisonRow("New items each month", "5 AI drafts", "25", "100", "250")}
+          ${comparisonRow("Smart Source Scans", "5", "50", "150", "400")}
+          ${comparisonRow("Inventory capacity", "25", "100", "500", "2,000")}
+          ${comparisonRow("Marketplace access", "1", "2", "4", "All supported")}
+          ${comparisonRow("TroFit & Personal TroScore", "Included", "Included", "Included", "Included")}
+          ${comparisonRow("Photo Prep", "Basic", "Included", "150 removals", "400 removals")}
+          ${comparisonRow("Auto-delisting", "—", "—", "Included", "Included")}
+          ${comparisonRow("Batch Scan & Dead-Pile Rescue", "—", "Preview", "Included", "Priority batch tools")}
+          ${comparisonRow("Reports", "Basic inventory", "Basic inventory", "Profit reports", "Advanced, mileage & tax")}
         </tbody>
       </table></div>
     </section>
@@ -1014,8 +1179,8 @@ function membershipPlanCard(plan, cycle) {
   </article>`;
 }
 
-function comparisonRow(label, free, seller, pro) {
-  return `<tr><th>${label}</th><td>${free}</td><td>${seller}</td><td>${pro}</td></tr>`;
+function comparisonRow(label, free, source, seller, pro) {
+  return `<tr><th>${label}</th><td>${free}</td><td>${source}</td><td>${seller}</td><td>${pro}</td></tr>`;
 }
 
 function tellTroView() {
@@ -1156,7 +1321,8 @@ function closeTro() {
 function troReply(text) {
   const lower = text.toLowerCase();
   if (lower.includes("suggest") || lower.includes("feedback") || lower.includes("idea") || lower.includes("add a marketplace")) return "I want to hear it. Open Tell Tro to speak or type your idea, attach a screenshot, and vote on the customer roadmap. During this prototype, your submission is saved on this device until secure cloud delivery is connected.";
-  if (lower.includes("membership") || lower.includes("plan") || lower.includes("29.99") || lower.includes("39.99")) return "SourceTro will launch with Free, Seller at $29.99 a month, and Pro at $39.99 a month. Open Membership to compare the monthly limits and save the plan that interests you. Payments are not open yet.";
+  if (lower.includes("membership") || lower.includes("plan") || lower.includes("9.99") || lower.includes("24.99") || lower.includes("39.99")) return "SourceTro’s planned launch choices are Free, Source at $9.99, Seller at $24.99, and Pro at $39.99 a month. Open Membership to compare limits and save the plan that interests you. Payments are not open yet.";
+  if (lower.includes("trofit") || lower.includes("troscore") || lower.includes("personal")) return "Open My TroFit and tell me your budget, minimum profit, available time, storage, and favorite marketplace. Then Smart Scan will give you a Personal TroScore and explain why the item fits—or does not fit—your own goals.";
   if (lower.includes("worth") || lower.includes("buy") || lower.includes("source")) return "Open Smart Source Scan, add a photo and the store price, and I’ll organize the resale range, estimated fees, shipping, profit, ROI, demand, maximum buy price, and a clear buy-or-pass answer. Live web comparisons will begin after the marketplace search service is connected.";
   if (lower.includes("price")) return "For a strong price suggestion, tell me the brand, item type, condition, and size. In the listing flow, I’ll give you a faster-sale price, recommended price, and higher test price.";
   if (lower.includes("title") || lower.includes("ebay")) return "A strong title starts with Brand + Item Type + Color + Size + important style or material keywords. Open New Listing and I’ll build one from your details.";
@@ -1217,6 +1383,13 @@ document.addEventListener("click", (event) => {
   if (action === "open-tro") openTro();
   if (action === "tro-expression") cycleTroExpression();
   if (action === "analyze-source") analyzeSourceScan();
+  if (action === "save-trofit") saveTroFit();
+  if (action === "barcode-preview") previewBarcodeLookup();
+  if (action === "focus-barcode") {
+    document.querySelector('[data-scan-bind="barcode"]')?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => document.querySelector('[data-scan-bind="barcode"]')?.focus(), 350);
+  }
+  if (action === "risk-review-info") showToast("Risk Review flags warning signs and recommends professional authentication for high-value items. It never promises an item is genuine from photos alone.");
   if (action === "save-scan") saveSourceDecision();
   if (action === "scan-to-listing") scanToListing();
   if (action === "add-finance-record") addFinanceRecord();
@@ -1255,6 +1428,18 @@ document.addEventListener("click", (event) => {
   const voiceButton = event.target.closest("[data-voice-target]");
   if (voiceButton) speakToInput(voiceButton.dataset.voiceTarget, voiceButton);
 
+  const batchItem = event.target.closest("[data-batch-item]");
+  if (batchItem) {
+    const item = state.batchItems[Number(batchItem.dataset.batchItem)];
+    if (item) {
+      state.sourcePhoto = { ...item, fromBatch: true };
+      state.sourceResult = null;
+      render();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      showToast("Batch photo moved into Smart Scan. Add the store price or item details.");
+    }
+  }
+
   const edit = event.target.closest("[data-edit-item]");
   if (edit) {
     const item = state.inventory.find((record) => record.id === edit.dataset.editItem);
@@ -1286,7 +1471,8 @@ document.addEventListener("click", (event) => {
     state.membershipInterest = plan.dataset.planInterest;
     saveJSON("sourcetro_membership_interest", state.membershipInterest);
     render();
-    showToast(plan.dataset.planInterest === "free" ? "Free is selected for launch." : `${plan.dataset.planInterest === "seller" ? "Seller" : "Pro"} saved as your preferred launch plan. No payment was taken.`);
+    const planName = membershipPlans.find((item) => item.id === plan.dataset.planInterest)?.name || "Plan";
+    showToast(plan.dataset.planInterest === "free" ? "Free is selected for launch." : `${planName} saved as your preferred launch plan. No payment was taken.`);
   }
 
   const category = event.target.closest("[data-feedback-category]");
@@ -1316,6 +1502,8 @@ document.addEventListener("input", (event) => {
   }
   const feedbackBound = event.target.dataset.feedbackBind;
   if (feedbackBound) state.feedbackDraft[feedbackBound] = event.target.value;
+  const troFitBound = event.target.dataset.trofitBind;
+  if (troFitBound) state.troFit[troFitBound] = event.target.value;
   if (["salePrice", "itemCost", "feeRate", "shipCost"].includes(event.target.id)) updateProfit();
   if (event.target.id === "inventorySearch" || event.target.id === "statusFilter") {
     const query = document.querySelector("#inventorySearch")?.value.toLowerCase() || "";
@@ -1336,6 +1524,8 @@ document.addEventListener("change", (event) => {
     state.sourceScan[scanBound] = event.target.value;
     state.sourceResult = null;
   }
+  const troFitBound = event.target.dataset.trofitBind;
+  if (troFitBound) state.troFit[troFitBound] = event.target.value;
 
   if (event.target.matches("[data-marketplace]")) {
     const name = event.target.dataset.marketplace;
@@ -1353,12 +1543,19 @@ document.addEventListener("change", (event) => {
   if (event.target.id === "sourcePhotoInput") {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (state.sourcePhoto?.url?.startsWith("blob:")) URL.revokeObjectURL(state.sourcePhoto.url);
+    if (state.sourcePhoto?.url?.startsWith("blob:") && !state.sourcePhoto.fromBatch) URL.revokeObjectURL(state.sourcePhoto.url);
     state.sourcePhoto = { name: file.name, url: URL.createObjectURL(file) };
     state.sourceResult = null;
     render();
     setTroState("listening", "Photo received — add the store price.", 1800);
     showToast("Photo added. Add the store price, then ask Tro to check it.");
+  }
+
+  if (event.target.id === "batchPhotoInput") {
+    const files = [...(event.target.files || [])].slice(0, 20);
+    files.forEach((file) => state.batchItems.push({ name: file.name, url: URL.createObjectURL(file) }));
+    render();
+    showToast(`${files.length} item${files.length === 1 ? "" : "s"} added to your SourceTro Batch Scan queue.`);
   }
 
   if (event.target.id === "feedbackScreenshot") {
@@ -1413,7 +1610,7 @@ window.addEventListener("hashchange", () => {
 });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=6").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=7").catch(() => {}));
 }
 
 render();
