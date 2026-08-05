@@ -2,6 +2,10 @@
 
 **From Source to Sold** — a calm, guided resale workspace built for clothing-first sellers.
 
+## Live app
+
+Open SourceTro at: https://selltro.github.io/Sourcetro/
+
 ## Included in this build
 
 - Lens-based SourceTro branding
@@ -34,4 +38,4 @@ Then open `http://localhost:3000`.
 
 ## Deployment
 
-The included GitHub Actions workflow deploys the site to GitHub Pages after each push to `main` once Pages is enabled for the repository.
+The included GitHub Actions workflow deploys the site to GitHub Pages after each push to `main`. Pages is enabled and configured to use GitHub Actions.
