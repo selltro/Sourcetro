@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="styles.css?v=8" />
   </head>
   <body>
     <div class="app-shell">
@@ -37,14 +37,19 @@
           <button class="nav-item" data-route="inventory"><span>▦</span> Inventory</button>
           <button class="nav-item" data-route="orders"><span>▣</span> Orders</button>
           <button class="nav-item" data-route="shipping"><span>↗</span> Shipping</button>
-          <button class="nav-item" data-route="analytics"><span>⌁</span> Analytics</button>
+          <button class="nav-item" data-route="analytics" data-full-only><span>⌁</span> Analytics</button>
           <button class="nav-item" data-route="finances"><span>$</span> Finances</button>
           <button class="nav-item" data-route="marketplaces"><span>⇄</span> Marketplaces</button>
-          <button class="nav-item" data-route="membership"><span>◇</span> Membership</button>
-          <button class="nav-item tell-tro-nav" data-route="tell-tro"><span>✦</span> Tell Tro</button>
+          <button class="nav-item" data-route="membership" data-full-only><span>◇</span> Membership</button>
+          <button class="nav-item tell-tro-nav" data-route="tell-tro" data-full-only><span>✦</span> Tell Tro</button>
         </nav>
 
         <div class="sidebar-bottom">
+          <button class="mode-switch" data-action="toggle-mode" aria-label="Switch between personal mode and the full SourceTro app">
+            <span class="mode-switch-icon">●</span>
+            <span><strong id="modeSwitchTitle">Personal Mode</strong><small id="modeSwitchNote">Built for Budget Basket</small></span>
+            <b id="modeSwitchAction">Full app</b>
+          </button>
           <button class="tro-card" id="openTroFromSidebar">
             <span class="tro-orb"><i></i></span>
             <span><strong>Ask Tro</strong><small>Your resale co-pilot</small></span>
@@ -62,6 +67,7 @@
           <button class="icon-button menu-button" id="menuButton" aria-label="Open navigation">☰</button>
           <div class="mobile-brand" aria-label="SourceTro"><span>SourceTr</span><span class="lens-o"><i></i></span><sup class="brand-tm">™</sup></div>
           <div class="topbar-actions">
+            <span class="mode-badge" id="modeBadge">Personal Mode</span>
             <button class="voice-top" id="voiceQuickAction"><span>●</span> Talk to Tro</button>
             <button class="icon-button notification" aria-label="Notifications">♧<i></i></button>
             <span class="avatar top-avatar">N</span>
@@ -101,12 +107,12 @@
       </form>
     </aside>
 
-    <button class="tell-tro-float" data-route="tell-tro" aria-label="Tell Tro what you think">
+    <button class="tell-tro-float" data-route="tell-tro" data-full-only aria-label="Tell Tro what you think">
       <span class="tro-orb"><i></i></span>
       <span><strong>Tell Tro</strong><small>Help shape SourceTro</small></span>
     </button>
 
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=8"></script>
   </body>
 </html>
