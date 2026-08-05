@@ -14,6 +14,10 @@ Open SourceTro at: https://selltro.github.io/Sourcetro/
 
 - Lens-based SourceTro branding
 - Smart Source Scan with photo capture, item details, planning comparisons, estimated sold range, profit, ROI, demand, maximum buy price, and buy/consider/pass guidance
+- TroFit profile for personal budget, profit, time, storage, experience, speed, and marketplace preferences
+- Personal TroScore with transparent profit, cash, speed, space, and marketplace factors
+- Best-marketplace preview, Offer Guide, and photo-based Authenticity Risk Review
+- SourceTro Batch Scan queue, barcode/model-number clue entry, and Photo Prep entry point
 - One-tap handoff from a sourcing decision into the listing creator
 - Responsive desktop and mobile dashboard
 - Five-step listing creator
@@ -26,7 +30,7 @@ Open SourceTro at: https://selltro.github.io/Sourcetro/
 - Orders and shipping workspaces
 - Analytics and profit estimator
 - Tro resale assistant drawer
-- Free, Seller, and Pro membership comparison with monthly and annual pricing
+- Free, Source ($9.99), Seller ($24.99), and Pro ($39.99) membership comparison with monthly and annual pricing
 - Tell Tro feedback, screenshot attachment, voice entry, customer roadmap, and voting
 - Browser storage and installable PWA support
 
