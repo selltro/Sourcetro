@@ -71,33 +71,32 @@ function showToast(message) {
 }
 
 const troExpressions = [
-  ["happy", "I’m happy to help!"],
-  ["thinking", "Hmm… let me think."],
-  ["listening", "I’m listening."],
-  ["working", "I’m working on it."],
-  ["success", "We did it!"],
-  ["ready", "Hi Nydia! I’m ready."],
+  ["listening", "Listening…"],
+  ["thinking", "Thinking…"],
+  ["working", "Working on it…"],
+  ["success", "Complete — ready to review."],
+  ["ready", "Ready when you are."],
 ];
 let troExpressionIndex = 0;
 
-function cycleTroExpression() {
+function setTroState(mood, message, resetDelay = 0) {
+  document.querySelectorAll(".tro-character, .tro-orb").forEach((lens) => {
+    lens.dataset.mood = mood;
+  });
   const character = document.querySelector(".tro-character");
   const status = document.querySelector(".tro-status");
-  if (!character) return;
+  if (character) character.setAttribute("aria-label", `Tro is ${mood}. ${message}`);
+  if (status) status.textContent = message;
+  clearTimeout(setTroState.timer);
+  if (resetDelay) {
+    setTroState.timer = setTimeout(() => setTroState("ready", "Ready when you are."), resetDelay);
+  }
+}
+
+function cycleTroExpression() {
   const [mood, message] = troExpressions[troExpressionIndex];
   troExpressionIndex = (troExpressionIndex + 1) % troExpressions.length;
-  character.dataset.mood = mood;
-  character.setAttribute("aria-label", message);
-  if (status) status.textContent = message;
-  clearTimeout(cycleTroExpression.timer);
-  if (mood !== "ready") {
-    cycleTroExpression.timer = setTimeout(() => {
-      if (!document.body.contains(character)) return;
-      character.dataset.mood = "ready";
-      character.setAttribute("aria-label", "Tro is ready. Tap Tro to see an expression.");
-      if (status) status.textContent = "Hi Nydia! I’m ready.";
-    }, 2600);
-  }
+  setTroState(mood, message, mood === "ready" ? 0 : 2600);
 }
 
 function setRoute(route) {
@@ -162,22 +161,17 @@ function dashboardView() {
         </div>
       </div>
       <div class="hero-lens">
-        <button class="tro-character" data-action="tro-expression" data-mood="ready" aria-label="Tro is ready. Tap Tro to see an expression.">
-          <span class="tro-arm tro-arm-left" aria-hidden="true"></span>
-          <span class="tro-arm tro-arm-right" aria-hidden="true"></span>
+        <button class="tro-character" data-action="tro-expression" data-mood="ready" aria-label="Tro is ready. Tap the lens to preview its color states.">
           <span class="tro-lens-body" aria-hidden="true">
             <span class="tro-focus-ring"></span>
             <span class="tro-glass">
               <span class="tro-shine"></span>
-              <span class="tro-eye tro-eye-left"></span>
-              <span class="tro-eye tro-eye-right"></span>
-              <span class="tro-cheek tro-cheek-left"></span>
-              <span class="tro-cheek tro-cheek-right"></span>
-              <span class="tro-mouth"></span>
+              <span class="tro-aperture"></span>
+              <span class="tro-core"></span>
             </span>
           </span>
         </button>
-        <small class="tro-status" aria-live="polite">Hi Nydia! I’m ready.</small>
+        <small class="tro-status" aria-live="polite">Ready when you are.</small>
       </div>
     </div>
 
@@ -411,16 +405,20 @@ function buildDescription() {
 }
 
 function generateListing() {
-  state.listing.title = buildTitle();
-  state.listing.description = buildDescription();
-  if (!state.listing.listPrice) {
-    const categoryBase = state.listing.category.includes("Shoes") ? 38 : state.listing.category.includes("Handbag") ? 48 : 32;
-    const brandBoost = /levi|nike|coach|ralph|patagonia|north face/i.test(state.listing.brand) ? 14 : 0;
-    state.listing.listPrice = categoryBase + brandBoost;
-  }
-  state.generated = true;
-  render();
-  showToast("Tro created your listing. Review it before publishing.");
+  setTroState("working", "Building your listing…");
+  setTimeout(() => {
+    state.listing.title = buildTitle();
+    state.listing.description = buildDescription();
+    if (!state.listing.listPrice) {
+      const categoryBase = state.listing.category.includes("Shoes") ? 38 : state.listing.category.includes("Handbag") ? 48 : 32;
+      const brandBoost = /levi|nike|coach|ralph|patagonia|north face/i.test(state.listing.brand) ? 14 : 0;
+      state.listing.listPrice = categoryBase + brandBoost;
+    }
+    state.generated = true;
+    render();
+    setTroState("success", "Listing ready to review.", 2600);
+    showToast("Tro created your listing. Review it before publishing.");
+  }, 650);
 }
 
 function storeListing(status) {
@@ -587,9 +585,12 @@ function speakToInput(target, button) {
   const recognition = new Recognition();
   recognition.lang = "en-US";
   recognition.interimResults = false;
+  let heard = false;
   button?.classList.add("listening");
+  setTroState("listening", "Listening…");
   showToast("Listening… speak naturally.");
   recognition.onresult = (event) => {
+    heard = true;
     const words = event.results[0][0].transcript;
     if (typeof target === "string") {
       state.listing[target] = `${state.listing[target] ? `${state.listing[target]} ` : ""}${words}`;
@@ -597,9 +598,16 @@ function speakToInput(target, button) {
     } else if (target) {
       target.value = `${target.value ? `${target.value} ` : ""}${words}`;
     }
+    setTroState("thinking", "Got it — thinking…", 1400);
   };
-  recognition.onerror = () => showToast("I did not catch that. Please try again.");
-  recognition.onend = () => button?.classList.remove("listening");
+  recognition.onerror = () => {
+    setTroState("ready", "Ready when you are.");
+    showToast("I did not catch that. Please try again.");
+  };
+  recognition.onend = () => {
+    button?.classList.remove("listening");
+    if (!heard) setTroState("ready", "Ready when you are.");
+  };
   recognition.start();
 }
 
@@ -713,9 +721,11 @@ document.querySelector("#troForm").addEventListener("submit", (event) => {
   const messages = document.querySelector("#troMessages");
   messages.insertAdjacentHTML("beforeend", `<div class="message user-message">${esc(text)}</div>`);
   input.value = "";
+  setTroState("thinking", "Thinking…");
   setTimeout(() => {
     messages.insertAdjacentHTML("beforeend", `<div class="message tro-message">${esc(troReply(text))}</div>`);
     messages.scrollTop = messages.scrollHeight;
+    setTroState("success", "Answer ready.", 1800);
   }, 350);
   messages.scrollTop = messages.scrollHeight;
 });
