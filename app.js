@@ -835,13 +835,13 @@ async function analyzeSourceScan() {
     const response = await fetch(`${SOURCETRO_API_URL}/analyze`, {
       method: "POST",
       headers: {
-        "Content-Type": "text/plain;charset=UTF-8",
+        "Content-Type": "application/json",
+        "X-SourceTro-Key": state.aiOwnerKey,
       },
       cache: "no-store",
       credentials: "omit",
       referrerPolicy: "no-referrer",
       body: JSON.stringify({
-        ownerKey: state.aiOwnerKey,
         mode: scan.journey === "Thinking of buying" ? "sourcing" : "owned",
         purchaseCost: scan.purchasePrice || null,
         targetProfit: state.troFit.minimumProfit || null,
@@ -2151,7 +2151,7 @@ window.addEventListener("hashchange", () => {
 });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=12").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=13").catch(() => {}));
 }
 
 render();
