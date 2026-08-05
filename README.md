@@ -1,6 +1,10 @@
 # SourceTro
 
-**From Source to Sold** — a calm, guided resale workspace built for clothing-first sellers.
+**From Source to Sold** — a calm, guided resale workspace built for resellers.
+
+**Mission:** SourceTro helps resellers source smarter, list faster, stay organized, and sell more.
+
+**Tro™** means **Trusted Resale Operator**.
 
 ## Live app
 
@@ -9,6 +13,8 @@ Open SourceTro at: https://selltro.github.io/Sourcetro/
 ## Included in this build
 
 - Lens-based SourceTro branding
+- Smart Source Scan with photo capture, item details, planning comparisons, estimated sold range, profit, ROI, demand, maximum buy price, and buy/consider/pass guidance
+- One-tap handoff from a sourcing decision into the listing creator
 - Responsive desktop and mobile dashboard
 - Five-step listing creator
 - Multi-photo preview and photo improvement choices
@@ -24,7 +30,7 @@ Open SourceTro at: https://selltro.github.io/Sourcetro/
 
 ## Important product boundary
 
-This is the working front-end foundation. It stores listing data in the browser. Direct publishing, live orders, marketplace analytics, payment information, and real AI generation require secure backend services and approved marketplace/API connections.
+This is the working front-end foundation. It stores listing and sourcing data in the browser. The Smart Source Scan currently produces a clearly labeled planning estimate so the complete workflow can be tested. Live web comparisons, real visual identification, direct publishing, live orders, automatic delisting, marketplace analytics, payment information, and real AI generation require secure backend services and approved marketplace/API connections.
 
 ## Run locally
 
