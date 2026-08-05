@@ -1,9 +1,9 @@
-const CACHE = "sourcetro-v7-trofit-source-tools";
+const CACHE = "sourcetro-v8-personal-mode";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=7",
-  "./app.js?v=7",
+  "./styles.css?v=8",
+  "./app.js?v=8",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
