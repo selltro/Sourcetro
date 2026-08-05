@@ -1,7 +1,7 @@
 const page = document.querySelector("#page");
 const toast = document.querySelector("#toast");
 
-const SOURCETRO_API_URL = "https://sourcetro-personal-api.selltro.workers.dev";
+const SOURCETRO_API_URL = "https://sourcetro-personal-api.nydia-burgos.workers.dev";
 const OWNER_KEY_STORAGE = "sourcetro_owner_key";
 const AI_VERIFIED_STORAGE = "sourcetro_ai_verified";
 
