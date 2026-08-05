@@ -628,6 +628,11 @@ function sourceScanView() {
             : `<div><span class="upload-icon">◎</span><h3>Take a picture or choose a photo</h3><p class="muted">Tro will use this as the starting point for identification.</p><span class="button secondary">Choose photo</span></div>`}
         </div>
 
+        ${state.sourcePhoto ? `<div class="photo-analyze-card ${state.aiError ? "error" : ""}">
+          <div><strong>${state.aiBusy ? "Tro is looking at your photo…" : "Your photo is ready"}</strong><small>${state.aiBusy ? "Keep this page open while Tro identifies the item and writes the listing." : "Tap the blue button now. The other details and sold prices are optional and can be added afterward."}</small>${state.aiError ? `<em>${esc(state.aiError)}</em>` : ""}</div>
+          <button class="button large" data-action="analyze-source" ${state.aiBusy ? "disabled" : ""}>${state.aiBusy ? "Tro is analyzing…" : "✦ Analyze this photo now"}</button>
+        </div>` : ""}
+
         <div class="source-step details-heading"><span>2</span><div><h2>Add what you know</h2><p class="muted">Tro turns these details into stronger comparison searches and listing keywords.</p></div></div>
         <div class="form-grid">
           ${scanField("itemName", "What is it?", 'placeholder="Example: Levi’s 721 jeans"')}
@@ -708,12 +713,27 @@ function batchQueueMarkup() {
 }
 
 function sourceWaitingMarkup() {
+  const hasPhoto = Boolean(state.sourcePhoto);
+  const heading = state.aiBusy
+    ? "Tro is analyzing your item…"
+    : hasPhoto
+      ? "Your photo is ready"
+      : state.sourceScan.journey === "Thinking of buying"
+        ? "Should you buy it?"
+        : "What is the best way to sell it?";
+  const copy = state.aiBusy
+    ? "Tro is identifying the item, checking what needs verification, and building your SEO listing draft."
+    : hasPhoto
+      ? "Tap the button below to start the live photo analysis. You can add the price and other details afterward."
+      : "Tro will organize the comparison evidence, value, demand, fees, profit, best marketplace, SEO keywords, and the next step.";
   return `<div class="source-waiting">
-    <span class="tro-orb" data-mood="ready"><i></i></span>
-    <p class="eyebrow">Tro is ready</p>
-    <h2>${state.sourceScan.journey === "Thinking of buying" ? "Should you buy it?" : "What is the best way to sell it?"}</h2>
-    <p>Tro will organize the comparison evidence, value, demand, fees, profit, best marketplace, SEO keywords, and the next step.</p>
-    <div class="decision-preview"><span>Great Buy</span><span>Consider</span><span>Buy below $___</span><span>Pass</span></div>
+    <span class="tro-orb" data-mood="${state.aiBusy ? "thinking" : "ready"}"><i></i></span>
+    <p class="eyebrow">${state.aiBusy ? "Tro is working" : hasPhoto ? "Photo received" : "Tro is ready"}</p>
+    <h2>${heading}</h2>
+    <p>${copy}</p>
+    ${state.aiError ? `<div class="source-inline-error"><strong>Tro could not finish</strong><span>${esc(state.aiError)}</span></div>` : ""}
+    ${hasPhoto && !state.aiBusy ? `<button class="button large waiting-analyze-button" data-action="analyze-source">✦ Analyze this photo now</button>` : ""}
+    ${!hasPhoto ? `<div class="decision-preview"><span>Great Buy</span><span>Consider</span><span>Buy below $___</span><span>Pass</span></div>` : ""}
   </div>`;
 }
 
@@ -2061,9 +2081,10 @@ document.addEventListener("change", (event) => {
     state.sourcePhoto = { name: file.name, url: URL.createObjectURL(file) };
     state.sourceResult = null;
     state.lastAIAnalysis = null;
+    state.aiError = "";
     render();
-    setTroState("listening", "Photo received — add the store price.", 1800);
-    showToast("Photo added. Add the store price, then ask Tro to check it.");
+    setTroState("listening", "Photo received — tap Analyze this photo now.", 1800);
+    showToast("Photo added. Tap the blue Analyze this photo now button.");
   }
 
   if (event.target.id === "batchPhotoInput") {
@@ -2125,7 +2146,7 @@ window.addEventListener("hashchange", () => {
 });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=10").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=11").catch(() => {}));
 }
 
 render();
