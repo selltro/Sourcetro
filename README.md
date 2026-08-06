@@ -22,7 +22,7 @@ Open SourceTro at: https://selltro.github.io/Sourcetro/
 - Responsive desktop and mobile dashboard
 - Five-step listing creator
 - Multi-photo preview and photo improvement choices
-- Flat-lay clothing measurements
+- Tro Measure guided photo flow: add up to two straight-down clothing photos with a visible measuring tape, automatically fill supported flat-lay measurements, and clearly flag values that need seller review
 - Typed or browser voice input
 - Tro-generated title, description, measurements, and pricing range
 - eBay, Poshmark, Mercari, and Depop listing preparation
