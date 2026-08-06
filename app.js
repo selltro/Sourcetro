@@ -22,6 +22,7 @@ const listingDefaults = {
   length: "",
   inseam: "",
   sleeve: "",
+  rise: "",
   title: "",
   description: "",
   listPrice: "",
@@ -150,6 +151,10 @@ const state = {
   appMode: loadJSON("sourcetro_app_mode", "personal"),
   wizardStep: 1,
   photos: [],
+  measurementPhotos: [],
+  measurementBusy: false,
+  measurementError: "",
+  measurementResult: null,
   listing: { ...listingDefaults },
   generated: false,
   inventory: loadJSON("sourcetro_inventory", []),
@@ -1194,6 +1199,9 @@ function scanToListing() {
     state.photos = [state.sourcePhoto];
     state.sourcePhoto = null;
   }
+  state.measurementPhotos = [];
+  state.measurementResult = null;
+  state.measurementError = "";
   state.generated = Boolean(aiListing?.seo_title && aiListing?.description);
   state.wizardStep = state.generated ? 4 : (state.photos.length ? 2 : 1);
   setRoute("new-listing");
@@ -1252,9 +1260,33 @@ function photoStep() {
 }
 
 function measurementStep() {
+  const result = state.measurementResult;
+  const completed = ["chest", "waist", "hips", "length", "inseam", "sleeve", "rise"].filter((name) => state.listing[name]).length;
   return `
-    ${wizardHeader(2, "Measure the clothing", "Tro keeps the measurements buyers need so you do not have to remember them.")}
-    <div class="measure-help"><span>↔</span><div><strong>Lay the garment flat.</strong><p>Measure straight across. SourceTro will place these measurements into your finished description.</p></div></div>
+    ${wizardHeader(2, "Let Tro read the measurements", "Take a clear photograph with the measuring tape visible. Tro will fill the boxes for you.")}
+    <section class="tro-measure-card ${state.measurementBusy ? "working" : ""}">
+      <div class="tro-measure-heading">
+        <span class="tro-orb" data-mood="${state.measurementBusy ? "thinking" : completed ? "success" : "ready"}"><i></i></span>
+        <div><p class="eyebrow">Tro Measure</p><h3>${state.measurementBusy ? "Reading the tape…" : completed ? `${completed} measurement${completed === 1 ? "" : "s"} ready` : "No typing needed"}</h3><p>Use up to two photos: one across the garment and one from top to bottom.</p></div>
+      </div>
+      <ol class="measure-photo-steps">
+        <li><span>1</span><strong>Lay it flat</strong><small>Smooth the clothing without stretching it.</small></li>
+        <li><span>2</span><strong>Show the tape</strong><small>Keep the zero mark, numbers, and garment edge visible.</small></li>
+        <li><span>3</span><strong>Shoot straight down</strong><small>Hold your phone above the item—not at an angle.</small></li>
+      </ol>
+      ${!state.aiOwnerKey ? `<div class="measurement-unlock"><div><strong>Unlock Tro Measure</strong><small>Use your saved SourceTro Owner Key—not your OpenAI key.</small></div><div class="ai-key-entry"><input id="sourceTroOwnerKey" type="password" autocomplete="current-password" placeholder="SourceTro Owner Key" aria-label="SourceTro Owner Key" /><button class="button" data-action="unlock-live-ai">Unlock</button></div></div>` : ""}
+      <label class="measurement-photo-picker ${state.measurementPhotos.length >= 2 ? "disabled" : ""}">
+        <input id="measurementPhotoInput" type="file" accept="image/*" capture="environment" ${state.measurementPhotos.length >= 2 ? "disabled" : ""} />
+        <span>${state.measurementPhotos.length ? "＋ Add another measurement photo" : "◎ Take measurement photo"}</span>
+        <small>${state.measurementPhotos.length}/2 photos added</small>
+      </label>
+      ${state.measurementPhotos.length ? `<div class="measurement-photo-grid">${state.measurementPhotos.map((photo, index) => `<div class="measurement-photo"><img src="${photo.url}" alt="Measurement photo ${index + 1}" /><button data-remove-measurement-photo="${index}" aria-label="Remove measurement photo">×</button><span>Photo ${index + 1}</span></div>`).join("")}</div>` : ""}
+      ${state.measurementError ? `<div class="measurement-message error"><strong>Tro needs another look</strong><span>${esc(state.measurementError)}</span></div>` : ""}
+      ${result ? `<div class="measurement-message ${result.confidence === "high" ? "success" : "review"}"><strong>${result.confidence === "high" ? "Measurements filled in" : "Please review the filled measurements"}</strong><span>${esc(result.review_message || "Compare Tro’s numbers with the tape before publishing.")}</span>${result.warnings?.length ? `<small>${esc(result.warnings.join(" "))}</small>` : ""}</div>` : ""}
+      <button class="button large full" data-action="analyze-measurements" ${state.measurementBusy || !state.measurementPhotos.length ? "disabled" : ""}>${state.measurementBusy ? "Tro is reading the tape…" : "✦ Read my measurements"}</button>
+      <p class="measurement-boundary">Tro only fills a number when the tape and garment edge are visible. Measurements are approximate—review them before publishing.</p>
+    </section>
+    <div class="measure-help"><span>↔</span><div><strong>Your measurements</strong><p>Tro fills these automatically. You can tap any box to correct a number.</p></div></div>
     <div class="form-grid">
       ${field("chest", "Chest / pit to pit", 'placeholder="inches" inputmode="decimal"')}
       ${field("waist", "Waist", 'placeholder="inches" inputmode="decimal"')}
@@ -1262,8 +1294,84 @@ function measurementStep() {
       ${field("length", "Total length", 'placeholder="inches" inputmode="decimal"')}
       ${field("inseam", "Inseam", 'placeholder="inches" inputmode="decimal"')}
       ${field("sleeve", "Sleeve", 'placeholder="inches" inputmode="decimal"')}
+      ${field("rise", "Rise", 'placeholder="inches" inputmode="decimal"')}
     </div>
     ${wizardFooter("Add item details")}`;
+}
+
+async function analyzeMeasurements() {
+  if (!state.measurementPhotos.length) {
+    showToast("Take a measurement photo first.");
+    return;
+  }
+  if (!state.aiOwnerKey) {
+    state.measurementError = "Enter your saved SourceTro Owner Key in the box above.";
+    render();
+    document.querySelector("#sourceTroOwnerKey")?.focus();
+    showToast("Unlock Tro Measure with your SourceTro Owner Key first.");
+    return;
+  }
+
+  state.measurementBusy = true;
+  state.measurementError = "";
+  state.measurementResult = null;
+  setTroState("thinking", "Reading your measuring tape…");
+  render();
+
+  try {
+    const images = await Promise.all(state.measurementPhotos.slice(0, 2).map((photo) => imageUrlForAI(photo.url)));
+    const response = await fetch(`${SOURCETRO_API_URL}/measure`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-SourceTro-Key": state.aiOwnerKey,
+      },
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      body: JSON.stringify({
+        images,
+        itemType: state.listing.itemType || "clothing item",
+        category: state.listing.category || "Clothing",
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401) {
+        lockLiveAI();
+        throw new Error("Your SourceTro Owner Key needs to be entered again.");
+      }
+      throw new Error(payload.error || "Tro could not read that measurement photo.");
+    }
+
+    const result = payload.measurements || {};
+    ["chest", "waist", "hips", "length", "inseam", "sleeve", "rise"].forEach((name) => {
+      const value = cleanMeasurement(result[name]);
+      if (value) state.listing[name] = value;
+    });
+    state.measurementResult = result;
+    state.aiStatus = "connected";
+    saveSessionValue(AI_VERIFIED_STORAGE, "true");
+    setTroState("success", "Measurements ready to review.", 2600);
+    showToast("Tro filled the measurements it could read. Please review them.");
+  } catch (error) {
+    state.measurementError = /failed to fetch/i.test(error?.message || "")
+      ? "SourceTro could not reach Tro Measure. Refresh once and try again."
+      : (error?.message || "Tro could not read that photo. Try a brighter, straight-down picture.");
+    setTroState("ready", "Ready when you are.");
+    showToast(state.measurementError);
+  } finally {
+    state.measurementBusy = false;
+    render();
+  }
+}
+
+function cleanMeasurement(value) {
+  const number = Number.parseFloat(String(value || "").replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(number) || number <= 0 || number > 100) return "";
+  const quarterInch = Math.round(number * 4) / 4;
+  return Number.isInteger(quarterInch) ? String(quarterInch) : String(quarterInch).replace(/0$/, "");
 }
 
 function detailsStep() {
@@ -1366,7 +1474,7 @@ function marketOption(name, className, copy) {
 function seoListingReview() {
   const listing = state.listing;
   const clothing = listing.category.includes("Clothing") || listing.category === "Shoes";
-  const measurements = [listing.chest, listing.waist, listing.hips, listing.length, listing.inseam, listing.sleeve].filter(Boolean).length;
+  const measurements = [listing.chest, listing.waist, listing.hips, listing.length, listing.inseam, listing.sleeve, listing.rise].filter(Boolean).length;
   const title = listing.title || buildTitle();
   const checks = [
     { label: "Brand + item type", done: Boolean(listing.brand && listing.itemType), tip: "Add the brand and exact product name buyers search." },
@@ -1416,6 +1524,7 @@ function buildDescription() {
     ["Length", state.listing.length],
     ["Inseam", state.listing.inseam],
     ["Sleeve", state.listing.sleeve],
+    ["Rise", state.listing.rise],
   ].filter(([, value]) => value).map(([label, value]) => `${label}: ${value} in`).join("\n");
 
   return `${state.listing.brand ? `${state.listing.brand} ` : ""}${state.listing.itemType || "item"} in ${state.listing.condition.toLowerCase()} condition.${state.listing.styleModel ? ` Style/model: ${state.listing.styleModel}.` : ""}${state.listing.color ? ` Color: ${state.listing.color}.` : ""}${state.listing.material ? ` Material: ${state.listing.material}.` : ""}${state.listing.size ? ` Tagged size: ${state.listing.size}.` : ""}\n\n${state.listing.notes || "Please review all photos for condition and details."}${state.listing.flaws ? `\n\nDisclosed flaws: ${state.listing.flaws}` : ""}${measurements ? `\n\nApproximate flat-lay measurements:\n${measurements}` : ""}\n\nStored carefully and ready to ship.`;
@@ -1463,6 +1572,10 @@ function resetListing() {
   state.listing = { ...listingDefaults, marketplaces: ["eBay"] };
   state.photos.forEach((photo) => photo.url.startsWith("blob:") && URL.revokeObjectURL(photo.url));
   state.photos = [];
+  state.measurementPhotos = [];
+  state.measurementBusy = false;
+  state.measurementError = "";
+  state.measurementResult = null;
   state.wizardStep = 1;
   state.generated = false;
 }
@@ -1906,6 +2019,7 @@ document.addEventListener("click", (event) => {
   if (action === "reset-listing") { resetListing(); render(); showToast("Started a clean listing."); }
   if (action === "wizard-back") { state.wizardStep = Math.max(1, state.wizardStep - 1); render(); }
   if (action === "wizard-next") { state.wizardStep = Math.min(5, state.wizardStep + 1); render(); }
+  if (action === "analyze-measurements") { analyzeMeasurements(); return; }
   if (action === "generate-listing") generateListing();
   if (action === "save-draft") { storeListing("Draft"); resetListing(); setRoute("inventory"); showToast("Draft saved in your inventory."); }
   if (action === "publish-listing") {
@@ -1922,7 +2036,18 @@ document.addEventListener("click", (event) => {
   const removePhoto = event.target.closest("[data-remove-photo]");
   if (removePhoto) {
     const [removed] = state.photos.splice(Number(removePhoto.dataset.removePhoto), 1);
+    state.measurementPhotos = state.measurementPhotos.filter((photo) => photo.url !== removed?.url);
     if (removed?.url.startsWith("blob:")) URL.revokeObjectURL(removed.url);
+    render();
+  }
+
+  const removeMeasurementPhoto = event.target.closest("[data-remove-measurement-photo]");
+  if (removeMeasurementPhoto) {
+    const [removed] = state.measurementPhotos.splice(Number(removeMeasurementPhoto.dataset.removeMeasurementPhoto), 1);
+    state.photos = state.photos.filter((photo) => photo.url !== removed?.url);
+    if (removed?.url?.startsWith("blob:")) URL.revokeObjectURL(removed.url);
+    state.measurementResult = null;
+    state.measurementError = "";
     render();
   }
 
@@ -2079,6 +2204,18 @@ document.addEventListener("change", (event) => {
     if (files.length) showToast(`${files.length} photo${files.length === 1 ? "" : "s"} added.`);
   }
 
+  if (event.target.id === "measurementPhotoInput") {
+    const file = event.target.files?.[0];
+    if (!file || state.measurementPhotos.length >= 2) return;
+    const photo = { id: `measure-${Date.now()}`, name: file.name, url: URL.createObjectURL(file), measurement: true };
+    state.measurementPhotos.push(photo);
+    state.photos.push(photo);
+    state.measurementResult = null;
+    state.measurementError = "";
+    render();
+    showToast("Measurement photo added. Add one more angle or tap Read my measurements.");
+  }
+
   if (event.target.id === "sourcePhotoInput") {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -2151,7 +2288,7 @@ window.addEventListener("hashchange", () => {
 });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=13").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("service-worker.js?v=14").catch(() => {}));
 }
 
 render();
