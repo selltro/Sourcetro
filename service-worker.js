@@ -1,9 +1,9 @@
-const CACHE = "sourcetro-v13-existing-worker-transport";
+const CACHE = "sourcetro-v14-tro-measure";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=13",
-  "./app.js?v=13",
+  "./styles.css?v=14",
+  "./app.js?v=14",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
