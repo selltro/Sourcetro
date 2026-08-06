@@ -14,6 +14,118 @@ function reply(data, status = 200, origin = "") {
   return new Response(JSON.stringify(data), { status, headers: headers(origin) });
 }
 
+function outputText(result) {
+  return result.output
+    ?.flatMap((item) => item.content || [])
+    .find((item) => item.type === "output_text")?.text;
+}
+
+async function measureClothing(body, env, origin) {
+  const images = Array.isArray(body.images) ? body.images.slice(0, 2) : [];
+  if (!images.length) {
+    return reply({ error: "Please include a clothing measurement photograph." }, 400, origin);
+  }
+
+  const itemType = String(body.itemType || "clothing item").slice(0, 120);
+  const category = String(body.category || "Clothing").slice(0, 120);
+  const content = [
+    {
+      type: "input_text",
+      text: `
+Read only clothing measurements that are visibly supported by these photographs.
+
+Seller category: ${category}
+Seller item type: ${itemType}
+
+Safety and accuracy rules:
+- A real measuring tape or ruler must be visible in the photograph.
+- The relevant zero mark, numbers, garment edge, and measurement endpoint must be readable.
+- Never infer measurements from a size tag, a person's body, or a typical garment size.
+- If a measurement cannot be read reliably, return an empty string for it.
+- Return inches to the nearest quarter inch. Convert visible centimeters to inches if necessary.
+- Chest means flat pit-to-pit, not doubled.
+- Waist and hips mean flat measurements across, not doubled.
+- Length means high shoulder to hem for tops/dresses or waistband to hem for bottoms.
+- Inseam means crotch seam to inside hem. Rise means crotch seam to waistband.
+- Sleeve means shoulder seam to cuff, unless the photo clearly uses another standard and explains it.
+- Treat every result as approximate and tell the seller what to verify.
+      `.trim(),
+    },
+    ...images.map((image) => ({ type: "input_image", image_url: image, detail: "high" })),
+  ];
+
+  const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-5-mini",
+      store: false,
+      max_output_tokens: 900,
+      input: [
+        {
+          role: "developer",
+          content: [{
+            type: "input_text",
+            text: "You are Tro Measure, a cautious clothing-measurement reader. Accuracy is more important than completing every field. Never guess a number that is not visibly supported by a tape or ruler.",
+          }],
+        },
+        { role: "user", content },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "sourcetro_clothing_measurements",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              garment_type: { type: "string" },
+              unit: { type: "string", enum: ["inches"] },
+              chest: { type: "string" },
+              waist: { type: "string" },
+              hips: { type: "string" },
+              length: { type: "string" },
+              inseam: { type: "string" },
+              sleeve: { type: "string" },
+              rise: { type: "string" },
+              confidence: { type: "string", enum: ["high", "medium", "low"] },
+              visible_reference: { type: "boolean" },
+              photo_quality: { type: "string" },
+              review_message: { type: "string" },
+              warnings: { type: "array", items: { type: "string" } },
+            },
+            required: ["garment_type", "unit", "chest", "waist", "hips", "length", "inseam", "sleeve", "rise", "confidence", "visible_reference", "photo_quality", "review_message", "warnings"],
+          },
+        },
+      },
+    }),
+  });
+
+  const result = await openAIResponse.json();
+  if (!openAIResponse.ok) {
+    console.error("OpenAI measurement request failed:", result);
+    return reply({ error: "Tro Measure could not read that photograph. Please try again." }, 502, origin);
+  }
+
+  const text = outputText(result);
+  if (!text) {
+    return reply({ error: "Tro Measure did not return completed measurements." }, 502, origin);
+  }
+
+  const measurements = JSON.parse(text);
+  if (!measurements.visible_reference) {
+    return reply({
+      error: "Tro could not see a readable measuring tape. Place the tape on the garment with the zero mark and numbers showing, then take the photo straight down.",
+    }, 422, origin);
+  }
+
+  return reply({ ok: true, measurements, usage: result.usage || null }, 200, origin);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -38,7 +150,7 @@ export default {
       }, 200, origin);
     }
 
-    if (request.method !== "POST" || url.pathname !== "/analyze") {
+    if (request.method !== "POST" || !["/analyze", "/measure"].includes(url.pathname)) {
       return reply({ error: "Not found." }, 404, origin);
     }
 
@@ -52,6 +164,10 @@ export default {
 
       if (!ownerKey || ownerKey !== env.SOURCETRO_OWNER_KEY) {
         return reply({ error: "Owner authorization required." }, 401, origin);
+      }
+
+      if (url.pathname === "/measure") {
+        return await measureClothing(body, env, origin);
       }
 
       const images = Array.isArray(body.images) ? body.images.slice(0, 4) : [];
@@ -162,40 +278,3 @@ Clearly explain when more information or photographs are needed.
                           additionalProperties: false,
                           properties: { name: { type: "string" }, value: { type: "string" } },
                           required: ["name", "value"],
-                        },
-                      },
-                      photo_checklist: { type: "array", items: { type: "string" } },
-                    },
-                    required: ["seo_title", "description", "item_specifics", "photo_checklist"],
-                  },
-                  warnings: { type: "array", items: { type: "string" } },
-                },
-                required: ["identification", "research", "evaluation", "listing", "warnings"],
-              },
-            },
-          },
-        }),
-      });
-
-      const result = await openAIResponse.json();
-
-      if (!openAIResponse.ok) {
-        console.error("OpenAI request failed:", result);
-        return reply({ error: "Tro could not analyze the item. Please try again." }, 502, origin);
-      }
-
-      const outputText = result.output
-        ?.flatMap((item) => item.content || [])
-        .find((item) => item.type === "output_text")?.text;
-
-      if (!outputText) {
-        return reply({ error: "Tro did not return a completed analysis." }, 502, origin);
-      }
-
-      return reply({ ok: true, analysis: JSON.parse(outputText), usage: result.usage || null }, 200, origin);
-    } catch (error) {
-      console.error("SourceTro error:", error);
-      return reply({ error: "SourceTro encountered an unexpected error." }, 500, origin);
-    }
-  },
-};
