@@ -145,7 +145,7 @@ export default {
         service: "SourceTro Personal API",
         openaiConnected: Boolean(env.OPENAI_API_KEY),
         ownerProtection: Boolean(env.SOURCETRO_OWNER_KEY),
-        transport: "secure-body-v12",
+        transport: "secure-body-v14-measure",
         message: "SourceTro secure AI connection is ready.",
       }, 200, origin);
     }
@@ -278,3 +278,38 @@ Clearly explain when more information or photographs are needed.
                           additionalProperties: false,
                           properties: { name: { type: "string" }, value: { type: "string" } },
                           required: ["name", "value"],
+                        },
+                      },
+                      photo_checklist: { type: "array", items: { type: "string" } },
+                    },
+                    required: ["seo_title", "description", "item_specifics", "photo_checklist"],
+                  },
+                  warnings: { type: "array", items: { type: "string" } },
+                },
+                required: ["identification", "research", "evaluation", "listing", "warnings"],
+              },
+            },
+          },
+        }),
+      });
+
+      const result = await openAIResponse.json();
+
+      if (!openAIResponse.ok) {
+        console.error("OpenAI request failed:", result);
+        return reply({ error: "Tro could not analyze the item. Please try again." }, 502, origin);
+      }
+
+      const completedText = outputText(result);
+
+      if (!completedText) {
+        return reply({ error: "Tro did not return a completed analysis." }, 502, origin);
+      }
+
+      return reply({ ok: true, analysis: JSON.parse(completedText), usage: result.usage || null }, 200, origin);
+    } catch (error) {
+      console.error("SourceTro error:", error);
+      return reply({ error: "SourceTro encountered an unexpected error." }, 500, origin);
+    }
+  },
+};
