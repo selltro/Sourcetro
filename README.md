@@ -40,6 +40,10 @@ Open SourceTro at: https://selltro.github.io/Sourcetro/
 - Owner-key protection stored only for the current browser tab; the OpenAI API key remains encrypted in Cloudflare and never enters the public app
 - One-click switching between Personal Mode and the complete SourceTro product; both modes share the same scans and inventory, so no work is erased
 
+## Memory protection
+
+SourceTro includes a lightweight memory guard for photo-heavy workflows. AI image preparation is serialized so two large camera photos are not decoded and resized at the same time, the Batch Scan queue is capped at eight active photos, selected batch photos are removed from the queue after handoff, and a Clear batch photos control releases queued browser blob URLs. These safeguards reduce memory spikes on phones and long-running browser sessions without lowering Tro Measure's 1400-pixel analysis resolution.
+
 ## Important product boundary
 
 This build stores listing, sourcing, membership-interest, and Tell Tro feedback data in the browser. Personal Mode can securely send item photos to the owner-protected Cloudflare Worker for OpenAI analysis and listing writing. Sold-price evidence still comes from the seller's verified eBay search until the approved eBay API is connected. Direct publishing, live orders, automatic delisting, marketplace analytics, cloud accounts, and payment information require additional approved services.
