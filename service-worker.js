@@ -1,9 +1,10 @@
-const CACHE = "sourcetro-v14-tro-measure";
+const CACHE = "sourcetro-v15-memory-guard";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css?v=14",
   "./app.js?v=14",
+  "./memory-guard.js?v=15",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
