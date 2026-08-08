@@ -5,17 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
   <title>SourceTro — eBay Authorization Not Completed</title>
-  <style>
-    body{font-family:Arial,sans-serif;background:#f6f8fb;color:#16283a;margin:0;display:grid;place-items:center;min-height:100vh;padding:24px}
-    main{max-width:560px;background:#fff;border:1px solid #dfe5ec;border-radius:18px;padding:32px;box-shadow:0 12px 36px rgba(0,0,0,.08);text-align:center}
-    h1{margin-top:0} p{line-height:1.5} a{color:#0b63ce;font-weight:700}
-  </style>
 </head>
 <body>
-  <main>
-    <h1>eBay authorization was not completed</h1>
-    <p>No changes were made. You can return to SourceTro and try connecting eBay again when you are ready.</p>
-    <p><a href="./">Return to SourceTro</a></p>
-  </main>
+  <p>Returning to SourceTro…</p>
+  <script>
+    location.replace("https://sourcetro-ebay-test.nydia-burgos.workers.dev/oauth/declined");
+  </script>
+  <noscript>
+    <a href="https://selltro.github.io/Sourcetro/#marketplaces">Return to SourceTro</a>
+  </noscript>
 </body>
 </html>
