@@ -367,6 +367,37 @@ async function handlePolicies(request, env, origin) {
   }
 }
 
+async function handleLocations(request, env, origin) {
+  const missing = missingOAuthSetup(env);
+  if (missing.length) {
+    return json({ ok: false, error: "eBay OAuth setup is incomplete.", missing }, 503, origin);
+  }
+  if (!ownerAuthorized(request, env)) {
+    return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
+  }
+
+  try {
+    const accessToken = await getUserAccessToken(env);
+    const result = await ebayGet(accessToken, "/sell/inventory/v1/location?limit=100");
+    const locations = Array.isArray(result.locations) ? result.locations : [];
+    const enabledLocations = locations.filter((item) => item?.merchantLocationStatus === "ENABLED");
+
+    return json({
+      ok: true,
+      ready: enabledLocations.length > 0,
+      total: Number(result.total || locations.length || 0),
+      enabledCount: enabledLocations.length,
+      locations,
+    }, 200, origin);
+  } catch (error) {
+    console.error("eBay inventory location check failed:", error);
+    return json({
+      ok: false,
+      error: error.message || "SourceTro could not read the eBay inventory locations.",
+    }, 502, origin);
+  }
+}
+
 async function handleDisconnect(request, env, origin) {
   if (!ownerAuthorized(request, env)) {
     return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
@@ -423,6 +454,10 @@ export default {
 
     if (url.pathname === "/ebay/policies" && request.method === "GET") {
       return handlePolicies(request, env, origin);
+    }
+
+    if (url.pathname === "/ebay/locations" && request.method === "GET") {
+      return handleLocations(request, env, origin);
     }
 
     if (url.pathname === "/disconnect" && request.method === "POST") {
