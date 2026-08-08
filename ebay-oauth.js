@@ -19,6 +19,10 @@
     }
   }
 
+  function setTextIfChanged(node, value) {
+    if (node && node.textContent !== value) node.textContent = value;
+  }
+
   async function gateway(path, options = {}) {
     const response = await fetch(`${EBAY_GATEWAY_URL}${path}`, {
       ...options,
@@ -57,47 +61,50 @@
 
     if (ebayStatus.busy) {
       button.disabled = true;
-      button.textContent = ebayStatus.connected ? "Checking…" : "Connecting…";
-      if (statusNode) statusNode.textContent = "Contacting eBay securely…";
+      setTextIfChanged(button, ebayStatus.connected ? "Checking…" : "Connecting…");
+      setTextIfChanged(statusNode, "Contacting eBay securely…");
       return;
     }
 
     button.disabled = false;
 
     if (!ownerKey()) {
-      button.textContent = "Connect eBay";
-      if (statusNode) statusNode.textContent = "Unlock SourceTro secure access first";
+      setTextIfChanged(button, "Connect eBay");
+      setTextIfChanged(statusNode, "Unlock SourceTro secure access first");
       return;
     }
 
     if (!ebayStatus.checked) {
-      button.textContent = "Connect eBay";
-      if (statusNode) statusNode.textContent = "Checking Production connection…";
+      setTextIfChanged(button, "Connect eBay");
+      setTextIfChanged(statusNode, "Checking Production connection…");
       return;
     }
 
     if (!ebayStatus.setupReady) {
-      button.textContent = "Finish setup";
-      if (statusNode) statusNode.textContent = "eBay gateway needs its Cloudflare settings";
+      setTextIfChanged(button, "Finish setup");
+      setTextIfChanged(statusNode, "eBay gateway needs its Cloudflare settings");
       return;
     }
 
     if (ebayStatus.connected) {
-      button.textContent = "Disconnect";
+      setTextIfChanged(button, "Disconnect");
       button.classList.add("secondary");
       if (statusNode) {
-        statusNode.textContent = "✓ Connected to eBay Production";
+        setTextIfChanged(statusNode, "✓ Connected to eBay Production");
         statusNode.classList.add("connected");
       }
       return;
     }
 
-    button.textContent = ebayStatus.needsReconnect ? "Reconnect eBay" : "Connect eBay";
+    setTextIfChanged(button, ebayStatus.needsReconnect ? "Reconnect eBay" : "Connect eBay");
     button.classList.remove("secondary");
     if (statusNode) {
-      statusNode.textContent = ebayStatus.needsReconnect
-        ? "Authorization expired or was revoked — reconnect"
-        : "Secure Production OAuth connection ready";
+      setTextIfChanged(
+        statusNode,
+        ebayStatus.needsReconnect
+          ? "Authorization expired or was revoked — reconnect"
+          : "Secure Production OAuth connection ready"
+      );
       statusNode.classList.remove("connected");
     }
   }
