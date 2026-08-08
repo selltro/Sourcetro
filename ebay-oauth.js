@@ -8,6 +8,8 @@
     connected: false,
     setupReady: false,
     needsReconnect: false,
+    policiesChecked: false,
+    policiesReady: false,
     error: "",
   };
 
@@ -90,7 +92,12 @@
       setTextIfChanged(button, "Disconnect");
       button.classList.add("secondary");
       if (statusNode) {
-        setTextIfChanged(statusNode, "✓ Connected to eBay Production");
+        const message = !ebayStatus.policiesChecked
+          ? "✓ Connected to eBay Production — checking business policies…"
+          : ebayStatus.policiesReady
+            ? "✓ eBay Production connected — business policies ready"
+            : "✓ eBay connected — business policies need attention";
+        setTextIfChanged(statusNode, message);
         statusNode.classList.add("connected");
       }
       return;
@@ -107,6 +114,20 @@
       );
       statusNode.classList.remove("connected");
     }
+  }
+
+  async function refreshPolicies() {
+    if (!ebayStatus.connected || !ownerKey()) return;
+    try {
+      const result = await gateway("/ebay/policies", { method: "GET" });
+      ebayStatus.policiesChecked = true;
+      ebayStatus.policiesReady = Boolean(result.ready);
+    } catch (error) {
+      ebayStatus.policiesChecked = true;
+      ebayStatus.policiesReady = false;
+      ebayStatus.error = error.message || "Could not check eBay business policies.";
+    }
+    decorateEbayCard();
   }
 
   async function refreshEbayStatus() {
@@ -136,6 +157,8 @@
       ebayStatus.busy = false;
       decorateEbayCard();
     }
+
+    if (ebayStatus.connected) refreshPolicies();
   }
 
   async function beginEbayConnect() {
@@ -169,6 +192,8 @@
       ebayStatus.checked = true;
       ebayStatus.connected = false;
       ebayStatus.needsReconnect = false;
+      ebayStatus.policiesChecked = false;
+      ebayStatus.policiesReady = false;
       setLocalConnection(false);
       showToast("eBay disconnected from SourceTro.");
     } catch (error) {
