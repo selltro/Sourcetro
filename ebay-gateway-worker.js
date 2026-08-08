@@ -3,6 +3,7 @@ const SOURCETRO_ORIGIN = "https://selltro.github.io";
 const SOURCETRO_APP_URL = "https://selltro.github.io/Sourcetro/";
 const EBAY_AUTH_URL = "https://auth.ebay.com/oauth2/authorize";
 const EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token";
+const EBAY_API_URL = "https://api.ebay.com";
 const EBAY_SCOPES = [
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
   "https://api.ebay.com/oauth/api_scope/sell.account",
@@ -201,6 +202,27 @@ async function getUserAccessToken(env) {
   return result.access_token;
 }
 
+async function ebayGet(accessToken, path) {
+  const response = await fetch(`${EBAY_API_URL}${path}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Accept": "application/json",
+    },
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const ebayMessage = result?.errors?.[0]?.longMessage
+      || result?.errors?.[0]?.message
+      || result?.error_description
+      || result?.error
+      || `eBay API request failed (${response.status}).`;
+    throw new Error(ebayMessage);
+  }
+  return result;
+}
+
 async function handleOAuthStart(request, env, origin) {
   const missing = missingOAuthSetup(env);
   if (missing.length) {
@@ -286,6 +308,65 @@ async function handleStatus(request, env, origin) {
   }
 }
 
+function policyMatch(policies, expectedName, idField) {
+  const match = policies.find((policy) => policy?.name === expectedName);
+  return match
+    ? { found: true, name: match.name, id: match[idField] || null }
+    : { found: false, name: expectedName, id: null };
+}
+
+async function handlePolicies(request, env, origin) {
+  const missing = missingOAuthSetup(env);
+  if (missing.length) {
+    return json({ ok: false, error: "eBay OAuth setup is incomplete.", missing }, 503, origin);
+  }
+  if (!ownerAuthorized(request, env)) {
+    return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
+  }
+
+  try {
+    const accessToken = await getUserAccessToken(env);
+    const [paymentResult, returnResult, fulfillmentResult] = await Promise.all([
+      ebayGet(accessToken, "/sell/account/v1/payment_policy?marketplace_id=EBAY_US"),
+      ebayGet(accessToken, "/sell/account/v1/return_policy?marketplace_id=EBAY_US"),
+      ebayGet(accessToken, "/sell/account/v1/fulfillment_policy?marketplace_id=EBAY_US"),
+    ]);
+
+    const paymentPolicies = Array.isArray(paymentResult.paymentPolicies) ? paymentResult.paymentPolicies : [];
+    const returnPolicies = Array.isArray(returnResult.returnPolicies) ? returnResult.returnPolicies : [];
+    const fulfillmentPolicies = Array.isArray(fulfillmentResult.fulfillmentPolicies) ? fulfillmentResult.fulfillmentPolicies : [];
+
+    const expected = {
+      payment: policyMatch(paymentPolicies, "Budget Basket - Payment", "paymentPolicyId"),
+      returns: policyMatch(returnPolicies, "Budget Basket - Returns", "returnPolicyId"),
+      shipping: policyMatch(fulfillmentPolicies, "Budget Basket - Shipping", "fulfillmentPolicyId"),
+    };
+
+    return json({
+      ok: true,
+      marketplaceId: "EBAY_US",
+      ready: expected.payment.found && expected.returns.found && expected.shipping.found,
+      expected,
+      counts: {
+        payment: paymentPolicies.length,
+        returns: returnPolicies.length,
+        shipping: fulfillmentPolicies.length,
+      },
+      policies: {
+        payment: paymentPolicies,
+        returns: returnPolicies,
+        shipping: fulfillmentPolicies,
+      },
+    }, 200, origin);
+  } catch (error) {
+    console.error("eBay policy check failed:", error);
+    return json({
+      ok: false,
+      error: error.message || "SourceTro could not read the eBay business policies.",
+    }, 502, origin);
+  }
+}
+
 async function handleDisconnect(request, env, origin) {
   if (!ownerAuthorized(request, env)) {
     return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
@@ -338,6 +419,10 @@ export default {
 
     if (url.pathname === "/status" && request.method === "GET") {
       return handleStatus(request, env, origin);
+    }
+
+    if (url.pathname === "/ebay/policies" && request.method === "GET") {
+      return handlePolicies(request, env, origin);
     }
 
     if (url.pathname === "/disconnect" && request.method === "POST") {
