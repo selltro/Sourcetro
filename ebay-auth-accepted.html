@@ -4,18 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
-  <title>SourceTro — eBay Connected</title>
-  <style>
-    body{font-family:Arial,sans-serif;background:#f6f8fb;color:#16283a;margin:0;display:grid;place-items:center;min-height:100vh;padding:24px}
-    main{max-width:560px;background:#fff;border:1px solid #dfe5ec;border-radius:18px;padding:32px;box-shadow:0 12px 36px rgba(0,0,0,.08);text-align:center}
-    h1{margin-top:0} p{line-height:1.5} a{color:#0b63ce;font-weight:700}
-  </style>
+  <title>SourceTro — Finishing eBay Connection</title>
 </head>
 <body>
-  <main>
-    <h1>eBay authorization received</h1>
-    <p>eBay returned you to SourceTro after authorization. You may return to SourceTro to continue setup.</p>
-    <p><a href="./">Return to SourceTro</a></p>
-  </main>
+  <p>Finishing your secure eBay connection…</p>
+  <script>
+    const gateway = "https://sourcetro-ebay-test.nydia-burgos.workers.dev/oauth/callback";
+    location.replace(gateway + location.search);
+  </script>
+  <noscript>
+    JavaScript is required to finish the eBay connection. Please return to SourceTro and try again.
+  </noscript>
 </body>
 </html>
