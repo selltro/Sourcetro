@@ -1,4 +1,4 @@
-const CACHE = "sourcetro-v22-ebay-import-refresh";
+const CACHE = "sourcetro-v23-ebay-import-freeze-fix";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,7 +6,7 @@ const ASSETS = [
   "./app.js?v=14",
   "./memory-guard.js?v=15",
   "./ebay-oauth.js?v=20",
-  "./ebay-import.js?v=22",
+  "./ebay-import.js?v=23",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
