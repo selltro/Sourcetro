@@ -139,7 +139,10 @@
   }
 
   async function enableTradingImport() {
-    const result = await gateway("/oauth/start", { method: "POST", body: "{}" });
+    const result = await gateway("/oauth/start", {
+      method: "POST",
+      body: JSON.stringify({ returnRoute: "inventory" }),
+    });
     if (!result.authUrl) throw new Error("eBay did not return a permission link.");
     window.location.assign(result.authUrl);
   }
