@@ -66,7 +66,7 @@
 
     if (ebayStatus.busy) {
       button.disabled = true;
-      setTextIfChanged(button, ebayStatus.connected ? "Checking…" : "Connecting…");
+      setTextIfChanged(button, ebayStatus.connected ? "Working…" : "Connecting…");
       setTextIfChanged(statusNode, "Contacting eBay securely…");
       return;
     }
@@ -92,8 +92,15 @@
     }
 
     if (ebayStatus.connected) {
-      setTextIfChanged(button, "Disconnect");
-      button.classList.add("secondary");
+      const needsLocation = ebayStatus.policiesChecked
+        && ebayStatus.policiesReady
+        && ebayStatus.locationsChecked
+        && !ebayStatus.locationReady;
+
+      setTextIfChanged(button, needsLocation ? "Create ship-from" : "Disconnect");
+      if (needsLocation) button.classList.remove("secondary");
+      else button.classList.add("secondary");
+
       if (statusNode) {
         let message = "✓ Connected to eBay Production";
         if (!ebayStatus.policiesChecked) {
@@ -214,6 +221,29 @@
     }
   }
 
+  async function createShipFromLocation() {
+    if (!ebayStatus.connected || !ownerKey()) return;
+
+    ebayStatus.busy = true;
+    decorateEbayCard();
+    try {
+      await gateway("/ebay/locations/create", { method: "POST", body: "{}" });
+      ebayStatus.busy = false;
+      ebayStatus.locationsChecked = false;
+      await refreshLocations();
+      if (ebayStatus.locationReady) {
+        showToast("Budget Basket ship-from location is ready on eBay.");
+      } else {
+        showToast("eBay received the ship-from setup, but it is not ready yet.");
+      }
+    } catch (error) {
+      ebayStatus.busy = false;
+      ebayStatus.error = error.message || "Could not create the eBay ship-from location.";
+      decorateEbayCard();
+      showToast(ebayStatus.error);
+    }
+  }
+
   async function disconnectEbay() {
     const confirmed = window.confirm("Disconnect eBay from SourceTro on this account?");
     if (!confirmed) return;
@@ -244,13 +274,20 @@
     const button = event.target.closest('[data-connect-market="eBay"]');
     if (!button) return;
 
-    // Intercept the prototype toggle in app.js so the eBay button now performs
-    // the real Production OAuth connection instead of only changing local state.
+    // Intercept the prototype toggle in app.js so the eBay button performs the
+    // live Production account action rather than only changing local state.
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
 
-    if (ebayStatus.connected) disconnectEbay();
+    const needsLocation = ebayStatus.connected
+      && ebayStatus.policiesChecked
+      && ebayStatus.policiesReady
+      && ebayStatus.locationsChecked
+      && !ebayStatus.locationReady;
+
+    if (needsLocation) createShipFromLocation();
+    else if (ebayStatus.connected) disconnectEbay();
     else beginEbayConnect();
   }, true);
 
