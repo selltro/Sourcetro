@@ -1,4 +1,4 @@
-const CACHE = "sourcetro-v23-ebay-import-freeze-fix";
+const CACHE = "sourcetro-v24-ebay-full-details";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,7 +6,7 @@ const ASSETS = [
   "./app.js?v=14",
   "./memory-guard.js?v=15",
   "./ebay-oauth.js?v=20",
-  "./ebay-import.js?v=23",
+  "./ebay-import.js?v=24",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
@@ -27,7 +27,6 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-
   event.respondWith(
     fetch(event.request)
       .then((response) => {
