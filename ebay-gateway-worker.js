@@ -398,6 +398,87 @@ async function handleLocations(request, env, origin) {
   }
 }
 
+async function handleCreateLocation(request, env, origin) {
+  if (!ownerAuthorized(request, env)) {
+    return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
+  }
+
+  try {
+    const accessToken = await getUserAccessToken(env);
+    const merchantLocationKey = "budget-basket-01108";
+    const locationPath = `/sell/inventory/v1/location/${merchantLocationKey}`;
+
+    const existingResponse = await fetch(`${EBAY_API_URL}${locationPath}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Accept": "application/json",
+      },
+    });
+
+    if (existingResponse.ok) {
+      const existing = await existingResponse.json().catch(() => ({}));
+      return json({
+        ok: true,
+        created: false,
+        alreadyExists: true,
+        merchantLocationKey,
+        name: existing.name || "Budget Basket Ship From",
+      }, 200, origin);
+    }
+
+    if (existingResponse.status !== 404) {
+      const existingError = await existingResponse.json().catch(() => ({}));
+      const existingMessage = existingError?.errors?.[0]?.longMessage
+        || existingError?.errors?.[0]?.message
+        || `eBay location check failed (${existingResponse.status}).`;
+      throw new Error(existingMessage);
+    }
+
+    const response = await fetch(`${EBAY_API_URL}${locationPath}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Budget Basket Ship From",
+        merchantLocationStatus: "ENABLED",
+        locationTypes: ["WAREHOUSE"],
+        location: {
+          address: {
+            postalCode: "01108",
+            country: "US",
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      const message = result?.errors?.[0]?.longMessage
+        || result?.errors?.[0]?.message
+        || `eBay location creation failed (${response.status}).`;
+      throw new Error(message);
+    }
+
+    return json({
+      ok: true,
+      created: true,
+      alreadyExists: false,
+      merchantLocationKey,
+      name: "Budget Basket Ship From",
+    }, 200, origin);
+  } catch (error) {
+    console.error("eBay inventory location creation failed:", error);
+    return json({
+      ok: false,
+      error: error.message || "SourceTro could not create the eBay ship-from location.",
+    }, 502, origin);
+  }
+}
+
 async function handleDisconnect(request, env, origin) {
   if (!ownerAuthorized(request, env)) {
     return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
@@ -458,6 +539,10 @@ export default {
 
     if (url.pathname === "/ebay/locations" && request.method === "GET") {
       return handleLocations(request, env, origin);
+    }
+
+    if (url.pathname === "/ebay/locations/create" && request.method === "POST") {
+      return handleCreateLocation(request, env, origin);
     }
 
     if (url.pathname === "/disconnect" && request.method === "POST") {
