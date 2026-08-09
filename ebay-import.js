@@ -44,6 +44,15 @@
     if (button && button.textContent !== text) button.textContent = text;
   }
 
+  function syncRouteFromHash() {
+    if (typeof state === "undefined" || typeof render !== "function") return;
+    const route = location.hash.replace("#", "") || "dashboard";
+    if (state.route !== route) {
+      state.route = route;
+      render();
+    }
+  }
+
   function decorateInventory() {
     if (typeof state === "undefined" || state.route !== "inventory") return;
     const header = page?.querySelector?.(".page-header");
@@ -177,6 +186,7 @@
       const listings = Array.isArray(result.listings) ? result.listings : [];
       const { added, updated } = mergeListings(listings);
       render();
+      decorateInventory();
       showToast(`eBay import complete: ${added} added, ${updated} refreshed.`);
     } catch (error) {
       const needsReconnect = Boolean(error?.details?.needsReconnect);
@@ -199,20 +209,25 @@
     importActiveListings();
   });
 
-  const observer = new MutationObserver(() => {
-    if (typeof state !== "undefined" && state.route === "inventory") decorateInventory();
-  });
-  observer.observe(page, { childList: true, subtree: true });
-
   window.addEventListener("hashchange", () => {
     setTimeout(() => {
+      syncRouteFromHash();
       decorateInventory();
       if (location.hash.replace("#", "") === "inventory") refreshStatus();
-    }, 80);
+    }, 60);
+  });
+
+  window.addEventListener("pageshow", () => {
+    setTimeout(() => {
+      syncRouteFromHash();
+      decorateInventory();
+      if (location.hash.replace("#", "") === "inventory") refreshStatus();
+    }, 60);
   });
 
   setTimeout(() => {
+    syncRouteFromHash();
     decorateInventory();
-    refreshStatus();
-  }, 900);
+    if (location.hash.replace("#", "") === "inventory") refreshStatus();
+  }, 300);
 })();
