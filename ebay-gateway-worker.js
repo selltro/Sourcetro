@@ -4,7 +4,10 @@ const SOURCETRO_APP_URL = "https://selltro.github.io/Sourcetro/";
 const EBAY_AUTH_URL = "https://auth.ebay.com/oauth2/authorize";
 const EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token";
 const EBAY_API_URL = "https://api.ebay.com";
+const EBAY_TRADING_URL = "https://api.ebay.com/ws/api.dll";
+const EBAY_TRADING_VERSION = "1455";
 const EBAY_SCOPES = [
+  "https://api.ebay.com/oauth/api_scope",
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
   "https://api.ebay.com/oauth/api_scope/sell.account",
   "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
@@ -84,8 +87,9 @@ async function hmacKey(secret, usage) {
   );
 }
 
-async function createSignedState(secret) {
-  const payload = JSON.stringify({ issuedAt: Date.now(), nonce: crypto.randomUUID() });
+async function createSignedState(secret, returnRoute = "marketplaces") {
+  const safeReturnRoute = returnRoute === "inventory" ? "inventory" : "marketplaces";
+  const payload = JSON.stringify({ issuedAt: Date.now(), nonce: crypto.randomUUID(), returnRoute: safeReturnRoute });
   const payloadPart = bytesToBase64Url(new TextEncoder().encode(payload));
   const key = await hmacKey(secret, ["sign"]);
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payloadPart));
@@ -93,9 +97,9 @@ async function createSignedState(secret) {
 }
 
 async function verifySignedState(value, secret) {
-  if (!value || !secret) return false;
+  if (!value || !secret) return null;
   const [payloadPart, signaturePart, extra] = value.split(".");
-  if (!payloadPart || !signaturePart || extra) return false;
+  if (!payloadPart || !signaturePart || extra) return null;
 
   try {
     const key = await hmacKey(secret, ["verify"]);
@@ -105,14 +109,15 @@ async function verifySignedState(value, secret) {
       base64UrlToBytes(signaturePart),
       new TextEncoder().encode(payloadPart),
     );
-    if (!valid) return false;
+    if (!valid) return null;
 
     const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadPart)));
-    return Number.isFinite(payload.issuedAt)
+    const fresh = Number.isFinite(payload.issuedAt)
       && payload.issuedAt <= Date.now() + 60_000
       && Date.now() - payload.issuedAt <= STATE_MAX_AGE_MS;
+    return fresh ? payload : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -223,16 +228,158 @@ async function ebayGet(accessToken, path) {
   return result;
 }
 
-async function handleOAuthStart(request, env, origin) {
+function decodeXml(value = "") {
+  const text = String(value).replace(/^<!\[CDATA\[([\s\S]*)\]\]>$/, "$1");
+  return text
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, num) => String.fromCodePoint(Number(num)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .trim();
+}
+
+function xmlTag(xml, tag) {
+  const match = String(xml || "").match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? decodeXml(match[1]) : "";
+}
+
+function xmlBlocks(xml, tag) {
+  return [...String(xml || "").matchAll(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "gi"))].map((match) => match[1]);
+}
+
+function tradingError(xml, status) {
+  const errors = xmlBlocks(xml, "Errors");
+  const first = errors[0] || xml;
+  const message = xmlTag(first, "LongMessage") || xmlTag(first, "ShortMessage") || `eBay Trading API request failed (${status}).`;
+  const code = xmlTag(first, "ErrorCode");
+  const error = new Error(message);
+  error.code = code;
+  error.needsReconnect = status === 401 || status === 403 || /token|oauth|auth|scope|permission|iaf/i.test(`${message} ${code}`);
+  return error;
+}
+
+async function getActiveSellingPage(accessToken, pageNumber) {
+  const requestXml = `<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <DetailLevel>ReturnAll</DetailLevel>
+  <ActiveList>
+    <Include>true</Include>
+    <Pagination>
+      <EntriesPerPage>100</EntriesPerPage>
+      <PageNumber>${pageNumber}</PageNumber>
+    </Pagination>
+  </ActiveList>
+</GetMyeBaySellingRequest>`;
+
+  const response = await fetch(EBAY_TRADING_URL, {
+    method: "POST",
+    headers: {
+      "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+      "X-EBAY-API-COMPATIBILITY-LEVEL": EBAY_TRADING_VERSION,
+      "X-EBAY-API-SITEID": "0",
+      "X-EBAY-API-IAF-TOKEN": accessToken,
+      "Content-Type": "text/xml",
+    },
+    body: requestXml,
+  });
+
+  const xml = await response.text();
+  const ack = xmlTag(xml, "Ack");
+  if (!response.ok || /failure/i.test(ack)) throw tradingError(xml, response.status);
+  return xml;
+}
+
+function normalizeActiveItem(itemXml) {
+  const itemId = xmlTag(itemXml, "ItemID");
+  if (!itemId) return null;
+  const primaryCategory = xmlBlocks(itemXml, "PrimaryCategory")[0] || "";
+  const listingDetails = xmlBlocks(itemXml, "ListingDetails")[0] || "";
+  const sellingStatus = xmlBlocks(itemXml, "SellingStatus")[0] || "";
+  const pictureDetails = xmlBlocks(itemXml, "PictureDetails")[0] || "";
+  const price = xmlTag(sellingStatus, "CurrentPrice") || xmlTag(itemXml, "BuyItNowPrice") || xmlTag(itemXml, "StartPrice");
+  return {
+    itemId,
+    title: xmlTag(itemXml, "Title"),
+    sku: xmlTag(itemXml, "SKU"),
+    price,
+    currency: "USD",
+    condition: xmlTag(itemXml, "ConditionDisplayName"),
+    categoryId: xmlTag(primaryCategory, "CategoryID"),
+    categoryName: xmlTag(primaryCategory, "CategoryName"),
+    listingType: xmlTag(itemXml, "ListingType"),
+    quantityAvailable: Number(xmlTag(itemXml, "QuantityAvailable") || xmlTag(itemXml, "Quantity") || 0),
+    watchCount: Number(xmlTag(itemXml, "WatchCount") || 0),
+    pictureUrl: xmlTag(pictureDetails, "PictureURL"),
+    startTime: xmlTag(listingDetails, "StartTime"),
+    endTime: xmlTag(listingDetails, "EndTime"),
+    viewItemUrl: xmlTag(listingDetails, "ViewItemURLForNaturalSearch") || xmlTag(listingDetails, "ViewItemURL") || `https://www.ebay.com/itm/${itemId}`,
+  };
+}
+
+async function handleActiveListings(request, env, origin) {
   const missing = missingOAuthSetup(env);
-  if (missing.length) {
-    return json({ ok: false, error: "eBay OAuth setup is incomplete.", missing }, 503, origin);
-  }
-  if (!ownerAuthorized(request, env)) {
-    return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
+  if (missing.length) return json({ ok: false, error: "eBay OAuth setup is incomplete.", missing }, 503, origin);
+  if (!ownerAuthorized(request, env)) return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
+
+  const connection = await getConnection(env);
+  if (!connection?.scopes?.includes("https://api.ebay.com/oauth/api_scope")) {
+    return json({
+      ok: false,
+      needsReconnect: true,
+      error: "Reconnect eBay once to enable read-only import of your current active listings.",
+    }, 403, origin);
   }
 
-  const state = await createSignedState(env.EBAY_STATE_SECRET);
+  try {
+    const accessToken = await getUserAccessToken(env);
+    const listingsById = new Map();
+    let pageNumber = 1;
+    let totalPages = 1;
+    let reportedTotal = 0;
+
+    while (pageNumber <= totalPages && pageNumber <= 125) {
+      const xml = await getActiveSellingPage(accessToken, pageNumber);
+      const activeList = xmlBlocks(xml, "ActiveList")[0] || "";
+      const pagination = xmlBlocks(activeList, "PaginationResult")[0] || "";
+      totalPages = Math.max(1, Number(xmlTag(pagination, "TotalNumberOfPages") || 1));
+      reportedTotal = Number(xmlTag(pagination, "TotalNumberOfEntries") || reportedTotal || 0);
+      const itemArray = xmlBlocks(activeList, "ItemArray")[0] || "";
+      for (const block of xmlBlocks(itemArray, "Item")) {
+        const item = normalizeActiveItem(block);
+        if (item) listingsById.set(item.itemId, item);
+      }
+      pageNumber += 1;
+    }
+
+    const listings = [...listingsById.values()];
+    return json({
+      ok: true,
+      readOnly: true,
+      marketplaceId: "EBAY_US",
+      total: reportedTotal || listings.length,
+      importedCount: listings.length,
+      listings,
+    }, 200, origin);
+  } catch (error) {
+    console.error("eBay active listing import failed:", error);
+    return json({
+      ok: false,
+      needsReconnect: Boolean(error.needsReconnect),
+      error: error.message || "SourceTro could not read your active eBay listings.",
+    }, error.needsReconnect ? 403 : 502, origin);
+  }
+}
+
+async function handleOAuthStart(request, env, origin) {
+  const missing = missingOAuthSetup(env);
+  if (missing.length) return json({ ok: false, error: "eBay OAuth setup is incomplete.", missing }, 503, origin);
+  if (!ownerAuthorized(request, env)) return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
+
+  const body = await request.json().catch(() => ({}));
+  const state = await createSignedState(env.EBAY_STATE_SECRET, body?.returnRoute);
   const authUrl = new URL(EBAY_AUTH_URL);
   authUrl.searchParams.set("client_id", env.EBAY_CLIENT_ID);
   authUrl.searchParams.set("redirect_uri", env.EBAY_RUNAME);
@@ -241,22 +388,18 @@ async function handleOAuthStart(request, env, origin) {
   authUrl.searchParams.set("state", state);
   authUrl.searchParams.set("locale", "en-US");
   authUrl.searchParams.set("prompt", "login");
-
   return json({ ok: true, authUrl: authUrl.toString() }, 200, origin);
 }
 
 async function handleOAuthCallback(url, env) {
   const missing = missingOAuthSetup(env);
-  if (missing.length) {
-    return htmlPage("SourceTro eBay setup is incomplete", `Missing: ${missing.join(", ")}.`, 503);
-  }
+  if (missing.length) return htmlPage("SourceTro eBay setup is incomplete", `Missing: ${missing.join(", ")}.`, 503);
 
   const code = url.searchParams.get("code") || "";
-  const state = url.searchParams.get("state") || "";
+  const signedState = url.searchParams.get("state") || "";
   if (!code) return htmlPage("eBay connection did not complete", "No authorization code was returned by eBay.");
-  if (!(await verifySignedState(state, env.EBAY_STATE_SECRET))) {
-    return htmlPage("eBay connection blocked", "The authorization state could not be verified. Please start the connection again from SourceTro.", 403);
-  }
+  const statePayload = await verifySignedState(signedState, env.EBAY_STATE_SECRET);
+  if (!statePayload) return htmlPage("eBay connection blocked", "The authorization state could not be verified. Please start the connection again from SourceTro.", 403);
 
   try {
     const tokenResult = await tokenRequest(env, {
@@ -265,7 +408,8 @@ async function handleOAuthCallback(url, env) {
       redirect_uri: env.EBAY_RUNAME,
     });
     await storeConnection(env, tokenResult);
-    return redirect(`${SOURCETRO_APP_URL}?ebay=connected#marketplaces`);
+    const route = statePayload.returnRoute === "inventory" ? "inventory" : "marketplaces";
+    return redirect(`${SOURCETRO_APP_URL}?ebay=connected#${route}`);
   } catch (error) {
     console.error("eBay OAuth callback failed:", error);
     return htmlPage("eBay connection failed", error.message || "SourceTro could not finish the eBay connection.", 502);
@@ -274,17 +418,11 @@ async function handleOAuthCallback(url, env) {
 
 async function handleStatus(request, env, origin) {
   const missing = missingOAuthSetup(env);
-  if (missing.length) {
-    return json({ ok: true, connected: false, setupReady: false, missing }, 200, origin);
-  }
-  if (!ownerAuthorized(request, env)) {
-    return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
-  }
+  if (missing.length) return json({ ok: true, connected: false, setupReady: false, missing }, 200, origin);
+  if (!ownerAuthorized(request, env)) return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
 
   const connection = await getConnection(env);
-  if (!connection?.refreshToken) {
-    return json({ ok: true, connected: false, setupReady: true, environment: "production" }, 200, origin);
-  }
+  if (!connection?.refreshToken) return json({ ok: true, connected: false, setupReady: true, environment: "production" }, 200, origin);
 
   try {
     await getUserAccessToken(env);
@@ -295,9 +433,9 @@ async function handleStatus(request, env, origin) {
       environment: "production",
       connectedAt: connection.connectedAt || null,
       refreshTokenExpiresAt: connection.refreshTokenExpiresAt || null,
-      scopes: connection.scopes || EBAY_SCOPES,
+      scopes: connection.scopes || [],
     }, 200, origin);
-  } catch (error) {
+  } catch {
     return json({
       ok: true,
       connected: false,
@@ -317,12 +455,8 @@ function policyMatch(policies, expectedName, idField) {
 
 async function handlePolicies(request, env, origin) {
   const missing = missingOAuthSetup(env);
-  if (missing.length) {
-    return json({ ok: false, error: "eBay OAuth setup is incomplete.", missing }, 503, origin);
-  }
-  if (!ownerAuthorized(request, env)) {
-    return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
-  }
+  if (missing.length) return json({ ok: false, error: "eBay OAuth setup is incomplete.", missing }, 503, origin);
+  if (!ownerAuthorized(request, env)) return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
 
   try {
     const accessToken = await getUserAccessToken(env);
@@ -335,7 +469,6 @@ async function handlePolicies(request, env, origin) {
     const paymentPolicies = Array.isArray(paymentResult.paymentPolicies) ? paymentResult.paymentPolicies : [];
     const returnPolicies = Array.isArray(returnResult.returnPolicies) ? returnResult.returnPolicies : [];
     const fulfillmentPolicies = Array.isArray(fulfillmentResult.fulfillmentPolicies) ? fulfillmentResult.fulfillmentPolicies : [];
-
     const expected = {
       payment: policyMatch(paymentPolicies, "Budget Basket - Payment", "paymentPolicyId"),
       returns: policyMatch(returnPolicies, "Budget Basket - Returns", "returnPolicyId"),
@@ -347,41 +480,25 @@ async function handlePolicies(request, env, origin) {
       marketplaceId: "EBAY_US",
       ready: expected.payment.found && expected.returns.found && expected.shipping.found,
       expected,
-      counts: {
-        payment: paymentPolicies.length,
-        returns: returnPolicies.length,
-        shipping: fulfillmentPolicies.length,
-      },
-      policies: {
-        payment: paymentPolicies,
-        returns: returnPolicies,
-        shipping: fulfillmentPolicies,
-      },
+      counts: { payment: paymentPolicies.length, returns: returnPolicies.length, shipping: fulfillmentPolicies.length },
+      policies: { payment: paymentPolicies, returns: returnPolicies, shipping: fulfillmentPolicies },
     }, 200, origin);
   } catch (error) {
     console.error("eBay policy check failed:", error);
-    return json({
-      ok: false,
-      error: error.message || "SourceTro could not read the eBay business policies.",
-    }, 502, origin);
+    return json({ ok: false, error: error.message || "SourceTro could not read the eBay business policies." }, 502, origin);
   }
 }
 
 async function handleLocations(request, env, origin) {
   const missing = missingOAuthSetup(env);
-  if (missing.length) {
-    return json({ ok: false, error: "eBay OAuth setup is incomplete.", missing }, 503, origin);
-  }
-  if (!ownerAuthorized(request, env)) {
-    return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
-  }
+  if (missing.length) return json({ ok: false, error: "eBay OAuth setup is incomplete.", missing }, 503, origin);
+  if (!ownerAuthorized(request, env)) return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
 
   try {
     const accessToken = await getUserAccessToken(env);
     const result = await ebayGet(accessToken, "/sell/inventory/v1/location?limit=100");
     const locations = Array.isArray(result.locations) ? result.locations : [];
     const enabledLocations = locations.filter((item) => item?.merchantLocationStatus === "ENABLED");
-
     return json({
       ok: true,
       ready: enabledLocations.length > 0,
@@ -391,47 +508,30 @@ async function handleLocations(request, env, origin) {
     }, 200, origin);
   } catch (error) {
     console.error("eBay inventory location check failed:", error);
-    return json({
-      ok: false,
-      error: error.message || "SourceTro could not read the eBay inventory locations.",
-    }, 502, origin);
+    return json({ ok: false, error: error.message || "SourceTro could not read the eBay inventory locations." }, 502, origin);
   }
 }
 
 async function handleCreateLocation(request, env, origin) {
-  if (!ownerAuthorized(request, env)) {
-    return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
-  }
+  if (!ownerAuthorized(request, env)) return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
 
   try {
     const accessToken = await getUserAccessToken(env);
     const merchantLocationKey = "budget-basket-01108";
     const locationPath = `/sell/inventory/v1/location/${merchantLocationKey}`;
-
     const existingResponse = await fetch(`${EBAY_API_URL}${locationPath}`, {
       method: "GET",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Accept": "application/json",
-      },
+      headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" },
     });
 
     if (existingResponse.ok) {
       const existing = await existingResponse.json().catch(() => ({}));
-      return json({
-        ok: true,
-        created: false,
-        alreadyExists: true,
-        merchantLocationKey,
-        name: existing.name || "Budget Basket Ship From",
-      }, 200, origin);
+      return json({ ok: true, created: false, alreadyExists: true, merchantLocationKey, name: existing.name || "Budget Basket Ship From" }, 200, origin);
     }
 
     if (existingResponse.status !== 404) {
       const existingError = await existingResponse.json().catch(() => ({}));
-      const existingMessage = existingError?.errors?.[0]?.longMessage
-        || existingError?.errors?.[0]?.message
-        || `eBay location check failed (${existingResponse.status}).`;
+      const existingMessage = existingError?.errors?.[0]?.longMessage || existingError?.errors?.[0]?.message || `eBay location check failed (${existingResponse.status}).`;
       throw new Error(existingMessage);
     }
 
@@ -446,52 +546,30 @@ async function handleCreateLocation(request, env, origin) {
         name: "Budget Basket Ship From",
         merchantLocationStatus: "ENABLED",
         locationTypes: ["WAREHOUSE"],
-        location: {
-          address: {
-            postalCode: "01108",
-            country: "US",
-          },
-        },
+        location: { address: { postalCode: "01108", country: "US" } },
       }),
     });
 
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
-      const message = result?.errors?.[0]?.longMessage
-        || result?.errors?.[0]?.message
-        || `eBay location creation failed (${response.status}).`;
-      throw new Error(message);
+      throw new Error(result?.errors?.[0]?.longMessage || result?.errors?.[0]?.message || `eBay location creation failed (${response.status}).`);
     }
 
-    return json({
-      ok: true,
-      created: true,
-      alreadyExists: false,
-      merchantLocationKey,
-      name: "Budget Basket Ship From",
-    }, 200, origin);
+    return json({ ok: true, created: true, alreadyExists: false, merchantLocationKey, name: "Budget Basket Ship From" }, 200, origin);
   } catch (error) {
     console.error("eBay inventory location creation failed:", error);
-    return json({
-      ok: false,
-      error: error.message || "SourceTro could not create the eBay ship-from location.",
-    }, 502, origin);
+    return json({ ok: false, error: error.message || "SourceTro could not create the eBay ship-from location." }, 502, origin);
   }
 }
 
 async function handleDisconnect(request, env, origin) {
-  if (!ownerAuthorized(request, env)) {
-    return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
-  }
+  if (!ownerAuthorized(request, env)) return json({ ok: false, error: "SourceTro owner authorization required." }, 401, origin);
   if (env.EBAY_TOKENS) await env.EBAY_TOKENS.delete(TOKEN_RECORD_KEY);
   accessTokenCache = null;
   return json({ ok: true, connected: false }, 200, origin);
 }
 
 async function handleMarketplaceAccountDeletion(request, env) {
-  // SourceTro Personal Mode currently supports one connected eBay seller account.
-  // If eBay sends an account-deletion event, remove the stored eBay authorization
-  // immediately so SourceTro no longer retains access to that user's eBay data.
   try {
     const payload = await request.json();
     if (payload?.metadata?.topic === "MARKETPLACE_ACCOUNT_DELETION" && env.EBAY_TOKENS) {
@@ -509,61 +587,30 @@ export default {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "";
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) });
-    }
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
 
-    if (url.pathname === "/oauth/callback" && request.method === "GET") {
-      return handleOAuthCallback(url, env);
-    }
+    if (url.pathname === "/oauth/callback" && request.method === "GET") return handleOAuthCallback(url, env);
+    if (url.pathname === "/oauth/declined" && request.method === "GET") return redirect(`${SOURCETRO_APP_URL}?ebay=declined#marketplaces`);
 
-    if (url.pathname === "/oauth/declined" && request.method === "GET") {
-      return redirect(`${SOURCETRO_APP_URL}?ebay=declined#marketplaces`);
-    }
+    if (origin && origin !== SOURCETRO_ORIGIN) return json({ ok: false, error: "Website not authorized." }, 403, origin);
 
-    if (origin && origin !== SOURCETRO_ORIGIN) {
-      return json({ ok: false, error: "Website not authorized." }, 403, origin);
-    }
+    if (url.pathname === "/oauth/start" && request.method === "POST") return handleOAuthStart(request, env, origin);
+    if (url.pathname === "/status" && request.method === "GET") return handleStatus(request, env, origin);
+    if (url.pathname === "/ebay/policies" && request.method === "GET") return handlePolicies(request, env, origin);
+    if (url.pathname === "/ebay/locations" && request.method === "GET") return handleLocations(request, env, origin);
+    if (url.pathname === "/ebay/locations/create" && request.method === "POST") return handleCreateLocation(request, env, origin);
+    if (url.pathname === "/ebay/listings/active" && request.method === "GET") return handleActiveListings(request, env, origin);
+    if (url.pathname === "/disconnect" && request.method === "POST") return handleDisconnect(request, env, origin);
 
-    if (url.pathname === "/oauth/start" && request.method === "POST") {
-      return handleOAuthStart(request, env, origin);
-    }
-
-    if (url.pathname === "/status" && request.method === "GET") {
-      return handleStatus(request, env, origin);
-    }
-
-    if (url.pathname === "/ebay/policies" && request.method === "GET") {
-      return handlePolicies(request, env, origin);
-    }
-
-    if (url.pathname === "/ebay/locations" && request.method === "GET") {
-      return handleLocations(request, env, origin);
-    }
-
-    if (url.pathname === "/ebay/locations/create" && request.method === "POST") {
-      return handleCreateLocation(request, env, origin);
-    }
-
-    if (url.pathname === "/disconnect" && request.method === "POST") {
-      return handleDisconnect(request, env, origin);
-    }
-
-    // eBay Marketplace Account Deletion endpoint verification.
     if (request.method === "GET" && url.pathname === "/" && url.searchParams.has("challenge_code")) {
       const challengeCode = url.searchParams.get("challenge_code");
       const verificationToken = env.EBAY_VERIFICATION_TOKEN;
-      if (!verificationToken) {
-        return json({ error: "Verification token is not configured." }, 500, origin);
-      }
+      if (!verificationToken) return json({ error: "Verification token is not configured." }, 500, origin);
       const challengeResponse = await sha256Hex(challengeCode + verificationToken + NOTIFICATION_ENDPOINT);
       return json({ challengeResponse }, 200, origin);
     }
 
-    // eBay Marketplace Account Deletion notifications.
-    if (request.method === "POST" && url.pathname === "/") {
-      return handleMarketplaceAccountDeletion(request, env);
-    }
+    if (request.method === "POST" && url.pathname === "/") return handleMarketplaceAccountDeletion(request, env);
 
     if (request.method === "GET" && url.pathname === "/") {
       return new Response("SourceTro eBay gateway is running.", {
