@@ -1,11 +1,11 @@
-const CACHE = "sourcetro-v18-ebay-policy-check";
+const CACHE = "sourcetro-v19-ebay-location-check";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css?v=14",
   "./app.js?v=14",
   "./memory-guard.js?v=15",
-  "./ebay-oauth.js?v=18",
+  "./ebay-oauth.js?v=19",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
