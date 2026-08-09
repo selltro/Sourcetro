@@ -10,6 +10,9 @@
     needsReconnect: false,
     policiesChecked: false,
     policiesReady: false,
+    locationsChecked: false,
+    locationReady: false,
+    enabledLocations: 0,
     error: "",
   };
 
@@ -92,11 +95,18 @@
       setTextIfChanged(button, "Disconnect");
       button.classList.add("secondary");
       if (statusNode) {
-        const message = !ebayStatus.policiesChecked
-          ? "✓ Connected to eBay Production — checking business policies…"
-          : ebayStatus.policiesReady
-            ? "✓ eBay Production connected — business policies ready"
-            : "✓ eBay connected — business policies need attention";
+        let message = "✓ Connected to eBay Production";
+        if (!ebayStatus.policiesChecked) {
+          message = "✓ Connected to eBay Production — checking business policies…";
+        } else if (!ebayStatus.policiesReady) {
+          message = "✓ eBay connected — business policies need attention";
+        } else if (!ebayStatus.locationsChecked) {
+          message = "✓ Business policies ready — checking ship-from location…";
+        } else if (ebayStatus.locationReady) {
+          message = "✓ eBay ready — policies and ship-from location confirmed";
+        } else {
+          message = "✓ eBay connected — ship-from location needed";
+        }
         setTextIfChanged(statusNode, message);
         statusNode.classList.add("connected");
       }
@@ -116,18 +126,41 @@
     }
   }
 
+  async function refreshLocations() {
+    if (!ebayStatus.connected || !ownerKey() || !ebayStatus.policiesReady) return;
+    try {
+      const result = await gateway("/ebay/locations", { method: "GET" });
+      ebayStatus.locationsChecked = true;
+      ebayStatus.locationReady = Boolean(result.ready);
+      ebayStatus.enabledLocations = Number(result.enabledCount || 0);
+    } catch (error) {
+      ebayStatus.locationsChecked = true;
+      ebayStatus.locationReady = false;
+      ebayStatus.enabledLocations = 0;
+      ebayStatus.error = error.message || "Could not check eBay inventory locations.";
+    }
+    decorateEbayCard();
+  }
+
   async function refreshPolicies() {
     if (!ebayStatus.connected || !ownerKey()) return;
     try {
       const result = await gateway("/ebay/policies", { method: "GET" });
       ebayStatus.policiesChecked = true;
       ebayStatus.policiesReady = Boolean(result.ready);
+      if (!ebayStatus.policiesReady) {
+        ebayStatus.locationsChecked = false;
+        ebayStatus.locationReady = false;
+      }
     } catch (error) {
       ebayStatus.policiesChecked = true;
       ebayStatus.policiesReady = false;
+      ebayStatus.locationsChecked = false;
+      ebayStatus.locationReady = false;
       ebayStatus.error = error.message || "Could not check eBay business policies.";
     }
     decorateEbayCard();
+    if (ebayStatus.policiesReady) refreshLocations();
   }
 
   async function refreshEbayStatus() {
@@ -194,6 +227,9 @@
       ebayStatus.needsReconnect = false;
       ebayStatus.policiesChecked = false;
       ebayStatus.policiesReady = false;
+      ebayStatus.locationsChecked = false;
+      ebayStatus.locationReady = false;
+      ebayStatus.enabledLocations = 0;
       setLocalConnection(false);
       showToast("eBay disconnected from SourceTro.");
     } catch (error) {
