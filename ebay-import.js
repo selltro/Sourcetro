@@ -24,6 +24,7 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      /** @type {any} */
       const error = new Error(data.error || `eBay request failed (${response.status}).`);
       error.details = data;
       throw error;
@@ -37,6 +38,10 @@
 
   function importButton() {
     return document.querySelector('[data-action="import-ebay-active"]');
+  }
+
+  function setButtonText(button, text) {
+    if (button && button.textContent !== text) button.textContent = text;
   }
 
   function decorateInventory() {
@@ -56,16 +61,14 @@
       else header.appendChild(button);
     }
 
-    button.disabled = busy;
-    if (busy) {
-      button.textContent = "Importing from eBay…";
-    } else if (!ownerKey()) {
-      button.textContent = "Unlock to import eBay";
-    } else if (lastStatus?.connected && !hasTradingScope(lastStatus)) {
-      button.textContent = "Enable eBay import";
-    } else {
-      button.textContent = "Import from eBay";
-    }
+    if (button.disabled !== busy) button.disabled = busy;
+
+    let label = "Import from eBay";
+    if (busy) label = "Importing from eBay…";
+    else if (!ownerKey()) label = "Unlock to import eBay";
+    else if (lastStatus?.connected && !hasTradingScope(lastStatus)) label = "Enable eBay import";
+
+    setButtonText(button, label);
   }
 
   async function refreshStatus() {
@@ -176,12 +179,12 @@
       render();
       showToast(`eBay import complete: ${added} added, ${updated} refreshed.`);
     } catch (error) {
-      const needsReconnect = Boolean(error.details?.needsReconnect);
+      const needsReconnect = Boolean(error?.details?.needsReconnect);
       if (needsReconnect) {
         const approved = window.confirm("eBay needs refreshed permission before SourceTro can read your active listings. Reconnect now? Your live listings will not be changed.");
         if (approved) await enableTradingImport();
       } else {
-        showToast(error.message || "SourceTro could not import your eBay listings.");
+        showToast(error?.message || "SourceTro could not import your eBay listings.");
       }
     } finally {
       busy = false;
