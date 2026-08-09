@@ -255,6 +255,7 @@ function tradingError(xml, status) {
   const first = errors[0] || xml;
   const message = xmlTag(first, "LongMessage") || xmlTag(first, "ShortMessage") || `eBay Trading API request failed (${status}).`;
   const code = xmlTag(first, "ErrorCode");
+  /** @type {any} */
   const error = new Error(message);
   error.code = code;
   error.needsReconnect = status === 401 || status === 403 || /token|oauth|auth|scope|permission|iaf/i.test(`${message} ${code}`);
