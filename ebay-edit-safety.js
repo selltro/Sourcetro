@@ -1,15 +1,32 @@
 (() => {
+  const EBAY_GATEWAY_URL = "https://sourcetro-ebay-test.nydia-burgos.workers.dev";
+  const OWNER_KEY_STORAGE = "sourcetro_owner_key";
+  let updateBusy = false;
+
   function isImportedEbayEdit() {
     return typeof state !== "undefined"
       && state.route === "new-listing"
       && Boolean(state.listing?.ebayItemId);
   }
 
+  function ownerKey() {
+    try {
+      return sessionStorage.getItem(OWNER_KEY_STORAGE) || "";
+    } catch {
+      return "";
+    }
+  }
+
   function remotePhoto(value) {
     return /^https?:\/\//i.test(String(value || "")) ? value : null;
   }
 
-  function saveImportedItemLocally() {
+  function originalInventoryItem() {
+    if (!isImportedEbayEdit()) return null;
+    return state.inventory.find((item) => item.id === state.listing.id || item.ebayItemId === state.listing.ebayItemId) || null;
+  }
+
+  function persistImportedItem(liveItem = null) {
     const itemId = state.listing.ebayItemId;
     const id = state.listing.id || `EBAY-${itemId}`;
     const existingIndex = state.inventory.findIndex((item) => item.id === id || item.ebayItemId === itemId);
@@ -21,9 +38,15 @@
       id,
       ebayItemId: itemId,
       status: existing.status || "Listed",
-      title: state.listing.title || existing.title || `eBay item ${itemId}`,
+      title: liveItem?.title || state.listing.title || existing.title || `eBay item ${itemId}`,
+      listPrice: liveItem?.price || state.listing.listPrice || existing.listPrice || "",
+      description: liveItem?.description || state.listing.description || existing.description || "",
+      ebayDescription: liveItem?.description || state.listing.description || existing.ebayDescription || "",
+      ebayDescriptionHtml: liveItem?.descriptionHtml || existing.ebayDescriptionHtml || "",
       photo: remotePhotos[0] || existing.photo || null,
       ebayPictureUrls: remotePhotos.length ? remotePhotos : (existing.ebayPictureUrls || []),
+      ebayItemSpecifics: liveItem?.itemSpecifics || existing.ebayItemSpecifics || state.listing.ebayItemSpecifics || {},
+      ebayUrl: liveItem?.viewItemUrl || existing.ebayUrl || state.listing.ebayUrl || "",
       updatedAt: new Date().toISOString(),
     };
 
@@ -38,31 +61,126 @@
         : [],
     }));
     saveJSON("sourcetro_inventory", persistent);
+    return record;
+  }
+
+  function saveImportedItemLocally() {
+    persistImportedItem();
     setRoute("inventory");
     showToast("Saved in SourceTro. Your live eBay listing was not changed.");
+  }
+
+  function collectLiveChanges() {
+    const original = originalInventoryItem();
+    if (!original) return {};
+    const changes = {};
+
+    const currentTitle = String(state.listing.title || "").trim();
+    const originalTitle = String(original.title || "").trim();
+    if (currentTitle && currentTitle !== originalTitle) changes.title = currentTitle;
+
+    const currentDescription = String(state.listing.description || "").trim();
+    const originalDescription = String(original.ebayDescription || original.description || "").trim();
+    if (currentDescription && currentDescription !== originalDescription) changes.description = currentDescription;
+
+    const currentPrice = Number(state.listing.listPrice || 0);
+    const originalPrice = Number(original.listPrice || 0);
+    if (currentPrice > 0 && Math.abs(currentPrice - originalPrice) >= 0.005) changes.price = currentPrice;
+
+    return changes;
+  }
+
+  function confirmationText(changes) {
+    const lines = [`This will change your LIVE eBay listing ${state.listing.ebayItemId}.`, "", "Changes:"];
+    if (Object.prototype.hasOwnProperty.call(changes, "title")) lines.push(`• Title: ${changes.title}`);
+    if (Object.prototype.hasOwnProperty.call(changes, "price")) lines.push(`• Price: $${Number(changes.price).toFixed(2)}`);
+    if (Object.prototype.hasOwnProperty.call(changes, "description")) lines.push("• Description: replace the current eBay description");
+    lines.push("", "No other eBay fields will be changed.", "", "Continue with this live update?");
+    return lines.join("\n");
+  }
+
+  async function reviseLiveEbayListing() {
+    if (updateBusy || !isImportedEbayEdit()) return;
+    if (!ownerKey()) {
+      showToast("Unlock SourceTro secure access first, then try the eBay update again.");
+      return;
+    }
+
+    const changes = collectLiveChanges();
+    if (!Object.keys(changes).length) {
+      showToast("No eBay title, description, or price changes were detected.");
+      return;
+    }
+
+    const approved = window.confirm(confirmationText(changes));
+    if (!approved) {
+      showToast("eBay was not changed.");
+      return;
+    }
+
+    updateBusy = true;
+    decorateImportedStepFive();
+    try {
+      const response = await fetch(`${EBAY_GATEWAY_URL}/ebay/listings/revise`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-SourceTro-Key": ownerKey(),
+        },
+        cache: "no-store",
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+        body: JSON.stringify({
+          itemId: state.listing.ebayItemId,
+          changes,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (result.needsReconnect) {
+          throw new Error("eBay authorization needs to be refreshed. Save in SourceTro first, then reconnect eBay from Marketplaces.");
+        }
+        throw new Error(result.error || `eBay update failed (${response.status}).`);
+      }
+
+      persistImportedItem(result.item || null);
+      setRoute("inventory");
+      const fields = Array.isArray(result.changedFields) ? result.changedFields.join(", ") : "listing";
+      showToast(`eBay updated successfully: ${fields}.`);
+    } catch (error) {
+      showToast(error?.message || "SourceTro could not update the live eBay listing.");
+    } finally {
+      updateBusy = false;
+      setTimeout(decorateImportedStepFive, 0);
+    }
   }
 
   function decorateImportedStepFive() {
     if (!isImportedEbayEdit() || state.wizardStep !== 5) return;
 
     const saveButton = document.querySelector('[data-action="save-draft"]');
-    const prepareButton = document.querySelector('[data-action="publish-listing"]');
+    const updateButton = document.querySelector('[data-action="publish-listing"]');
+
     if (saveButton && saveButton.textContent !== "Save in SourceTro") {
       saveButton.textContent = "Save in SourceTro";
     }
-    if (prepareButton && prepareButton.textContent !== "Update eBay →") {
-      prepareButton.textContent = "Update eBay →";
-      prepareButton.title = "This button will be connected to a confirmed eBay update step next.";
+
+    if (updateButton) {
+      updateButton.disabled = updateBusy;
+      const label = updateBusy ? "Updating eBay…" : "Update eBay →";
+      if (updateButton.textContent !== label) updateButton.textContent = label;
+      updateButton.title = "Updates only the live eBay title, description, or price after you confirm the exact changes.";
     }
 
-    const footer = prepareButton?.closest?.(".wizard-footer");
+    const footer = updateButton?.closest?.(".wizard-footer");
     if (footer && !footer.querySelector("[data-ebay-edit-note]")) {
       const note = document.createElement("p");
       note.dataset.ebayEditNote = "true";
       note.className = "muted";
       note.style.margin = "10px 0 0";
       note.style.width = "100%";
-      note.textContent = "Imported eBay listing: saving here changes SourceTro only. Updating eBay will require a separate confirmation.";
+      note.textContent = "Imported eBay listing: Save in SourceTro never changes eBay. Update eBay changes only title, description, or price and always asks you to confirm first.";
       footer.appendChild(note);
     }
   }
@@ -81,22 +199,12 @@
     if (action === "publish-listing") {
       event.preventDefault();
       event.stopImmediatePropagation();
-      showToast("Your live eBay listing was not changed. The confirmed eBay update step is being connected next.");
+      reviseLiveEbayListing();
       return;
     }
 
-    if (action === "wizard-next" || action === "wizard-back") {
-      setTimeout(decorateImportedStepFive, 0);
-    }
+    setTimeout(decorateImportedStepFive, 0);
   }, true);
-
-  const observer = new MutationObserver(() => {
-    if (isImportedEbayEdit() && state.wizardStep === 5) decorateImportedStepFive();
-  });
-
-  if (typeof page !== "undefined" && page) {
-    observer.observe(page, { childList: true, subtree: true });
-  }
 
   window.addEventListener("hashchange", () => setTimeout(decorateImportedStepFive, 40));
   window.addEventListener("pageshow", () => setTimeout(decorateImportedStepFive, 40));
