@@ -1,4 +1,4 @@
-const CACHE = "sourcetro-v28-safe-cloud-sync";
+const CACHE = "sourcetro-v29-sync-recovery";
 const ASSETS = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const ASSETS = [
   "./ebay-import.js?v=24",
   "./ebay-edit-safety.js?v=26",
   "./cloud-sync.js?v=28",
+  "./sync-recovery.js?v=29",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
