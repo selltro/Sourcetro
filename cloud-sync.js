@@ -94,6 +94,24 @@
     return data;
   }
 
+  function meaningfulCount(data = {}) {
+    let score = 0;
+    const inventory = data.sourcetro_inventory;
+    const scans = data.sourcetro_scan_history;
+    const finances = data.sourcetro_finance_records;
+    const feedback = data.sourcetro_feedback;
+    const connections = data.sourcetro_connections;
+    const trofit = data.sourcetro_trofit;
+
+    if (Array.isArray(inventory)) score += inventory.length * 100;
+    if (Array.isArray(scans)) score += scans.length * 10;
+    if (Array.isArray(finances)) score += finances.length * 10;
+    if (Array.isArray(feedback)) score += feedback.length * 5;
+    if (connections && typeof connections === "object") score += Object.values(connections).filter(Boolean).length;
+    if (trofit && typeof trofit === "object" && Object.keys(trofit).length) score += 1;
+    return score;
+  }
+
   function applyDataToState(data) {
     if (typeof state === "undefined") return;
     if (Object.prototype.hasOwnProperty.call(data, "sourcetro_app_mode")) state.appMode = data.sourcetro_app_mode || "personal";
@@ -149,19 +167,36 @@
     syncing = true;
     try {
       const cloud = await syncRequest("/sync", { method: "GET" });
+      const localData = snapshot();
+      const localScore = meaningfulCount(localData);
+      const cloudData = cloud?.data && typeof cloud.data === "object" ? cloud.data : {};
+      const cloudScore = meaningfulCount(cloudData);
       const localRevision = Number(readLocal(SYNC_REVISION_KEY) || 0);
+      const cloudRevision = Number(cloud.revision || 0);
       const dirty = readLocal(SYNC_DIRTY_KEY) === "1";
 
+      // Never let a brand-new/empty device erase a populated device.
       if (!cloud.found) {
-        await pushCloud(true);
+        if (localScore > 0) await pushCloud(true);
         return;
       }
 
-      if (!dirty && Number(cloud.revision || 0) > localRevision) {
+      // If one side clearly has the user's real data and the other side is empty,
+      // automatically keep the populated side as the source of truth.
+      if (localScore > 0 && cloudScore === 0) {
+        await pushCloud(true);
+        return;
+      }
+      if (cloudScore > 0 && localScore === 0) {
+        applyRemotePayload(cloud);
+        return;
+      }
+
+      if (!dirty && cloudRevision > localRevision) {
         applyRemotePayload(cloud);
       } else if (dirty) {
         await pushCloud(true);
-      } else if (!localRevision) {
+      } else if (!localRevision && cloudScore > 0) {
         applyRemotePayload(cloud);
       }
     } catch (error) {
