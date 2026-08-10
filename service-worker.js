@@ -1,4 +1,4 @@
-const CACHE = "sourcetro-v24-ebay-full-details";
+const CACHE = "sourcetro-v25-safe-ebay-edit";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "./memory-guard.js?v=15",
   "./ebay-oauth.js?v=20",
   "./ebay-import.js?v=24",
+  "./ebay-edit-safety.js?v=25",
   "./manifest.webmanifest",
   "./assets/sourcetro-mark.svg",
 ];
