@@ -1,5 +1,5 @@
 (() => {
-  const BUILD = "47";
+  const BUILD = "48";
   const SW_URL = `service-worker.js?v=${BUILD}`;
   const RELOAD_MARKER = `sourcetro_sw_reloaded_${BUILD}`;
 
@@ -24,10 +24,7 @@
   async function registerLatestWorker() {
     if (!("serviceWorker" in navigator)) return;
     try {
-      const registration = await navigator.serviceWorker.register(SW_URL, {
-        scope: "./",
-        updateViaCache: "none",
-      });
+      const registration = await navigator.serviceWorker.register(SW_URL, { scope: "./", updateViaCache: "none" });
       await registration.update();
     } catch (error) {
       console.warn("SourceTro update check unavailable:", error?.message || error);
@@ -45,12 +42,10 @@
   }
 
   normalizeInstalledUrl();
-
   window.addEventListener("load", () => {
     registerLatestWorker();
-    setTimeout(refreshCloud, 1200);
+    setTimeout(refreshCloud, 900);
   });
-
   window.addEventListener("focus", () => setTimeout(refreshCloud, 350));
   window.addEventListener("online", () => setTimeout(refreshCloud, 350));
   document.addEventListener("visibilitychange", () => {
