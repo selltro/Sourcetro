@@ -1,20 +1,21 @@
-const CACHE = "sourcetro-v36-category-persistence";
+const CACHE = "sourcetro-v37-local-overrides";
 const ASSETS = [
   "./",
   "./index.html",
-  "./?app=1&v=36",
-  "./styles.css?v=36",
-  "./app.js?v=36",
-  "./memory-guard.js?v=36",
-  "./ebay-oauth.js?v=36",
-  "./ebay-import.js?v=36",
-  "./ebay-edit-safety.js?v=36",
-  "./cloud-sync.js?v=36",
-  "./sync-recovery.js?v=36",
-  "./mobile-inventory-edit.js?v=36",
-  "./ebay-local-fields.js?v=36",
-  "./pwa-update.js?v=36",
-  "./manifest.webmanifest?v=36",
+  "./?app=1&v=37",
+  "./styles.css?v=37",
+  "./app.js?v=37",
+  "./memory-guard.js?v=37",
+  "./ebay-oauth.js?v=37",
+  "./local-item-overrides.js?v=37",
+  "./ebay-import.js?v=37",
+  "./ebay-edit-safety.js?v=37",
+  "./cloud-sync.js?v=37",
+  "./sync-recovery.js?v=37",
+  "./mobile-inventory-edit.js?v=37",
+  "./ebay-local-fields.js?v=37",
+  "./pwa-update.js?v=37",
+  "./manifest.webmanifest?v=37",
   "./assets/sourcetro-mark.svg",
 ];
 
@@ -48,7 +49,7 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
         if (event.request.mode === "navigate") {
-          return (await caches.match("./?app=1&v=36")) || (await caches.match("./index.html"));
+          return (await caches.match("./?app=1&v=37")) || (await caches.match("./index.html"));
         }
         return Response.error();
       }),
