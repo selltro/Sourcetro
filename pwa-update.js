@@ -1,5 +1,5 @@
 (() => {
-  const BUILD = "41";
+  const BUILD = "42";
   const SW_URL = `service-worker.js?v=${BUILD}`;
   const RELOAD_MARKER = `sourcetro_sw_reloaded_${BUILD}`;
 
@@ -18,9 +18,7 @@
 
   async function refreshCloud() {
     if (!window.SourceTroCloud?.refreshFromCloud) return;
-    try {
-      await window.SourceTroCloud.refreshFromCloud();
-    } catch {}
+    try { await window.SourceTroCloud.refreshFromCloud(); } catch {}
   }
 
   async function registerLatestWorker() {
