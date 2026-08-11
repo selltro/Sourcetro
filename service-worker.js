@@ -1,22 +1,23 @@
-const CACHE = "sourcetro-v43-live-tro-chat";
+const CACHE = "sourcetro-v44-seller-workflow";
 const ASSETS = [
   "./",
   "./index.html",
-  "./?app=1&v=43",
-  "./styles.css?v=43",
-  "./trusted-session.js?v=43",
-  "./app.js?v=43",
-  "./tro-chat.js?v=43",
-  "./memory-guard.js?v=43",
-  "./ebay-oauth.js?v=43",
-  "./ebay-import.js?v=43",
-  "./ebay-edit-safety.js?v=43",
-  "./cloud-sync.js?v=43",
-  "./sync-recovery.js?v=43",
-  "./mobile-inventory-edit.js?v=43",
-  "./ui-stability.js?v=43",
-  "./pwa-update.js?v=43",
-  "./manifest.webmanifest?v=43",
+  "./?app=1&v=44",
+  "./styles.css?v=44",
+  "./trusted-session.js?v=44",
+  "./app.js?v=44",
+  "./tro-chat.js?v=44",
+  "./memory-guard.js?v=44",
+  "./ebay-oauth.js?v=44",
+  "./ebay-import.js?v=44",
+  "./ebay-edit-safety.js?v=44",
+  "./seller-workflow.js?v=44",
+  "./cloud-sync.js?v=44",
+  "./sync-recovery.js?v=44",
+  "./mobile-inventory-edit.js?v=44",
+  "./ui-stability.js?v=44",
+  "./pwa-update.js?v=44",
+  "./manifest.webmanifest?v=44",
   "./assets/sourcetro-mark.svg",
 ];
 
@@ -50,7 +51,7 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
         if (event.request.mode === "navigate") {
-          return (await caches.match("./?app=1&v=43")) || (await caches.match("./index.html"));
+          return (await caches.match("./?app=1&v=44")) || (await caches.match("./index.html"));
         }
         return Response.error();
       }),
