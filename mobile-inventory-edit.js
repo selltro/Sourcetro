@@ -1,4 +1,5 @@
 (() => {
+  const INVENTORY_KEY = "sourcetro_inventory";
   let saveBusy = false;
   let refreshTimer = null;
   let decorateTimer = null;
@@ -13,27 +14,36 @@
   }
 
   function existingItem() {
-    if (typeof state === "undefined" || state.route !== "new-listing" || !state.listing?.id) return null;
+    if (typeof state === "undefined" || state.route !== "new-listing" || !state.listing) return null;
     return state.inventory.find((item) =>
-      item.id === state.listing.id ||
+      (state.listing.id && item.id === state.listing.id) ||
       (state.listing.ebayItemId && item.ebayItemId === state.listing.ebayItemId)
     ) || null;
   }
 
   function captureVisibleFormIntoListing() {
-    if (typeof state === "undefined" || !state.listing) return;
+    const captured = {};
+    if (typeof state === "undefined" || !state.listing) return captured;
 
     document.querySelectorAll("[data-bind]").forEach((field) => {
       const key = field.dataset.bind;
       if (!key) return;
-      if (field.type === "checkbox") state.listing[key] = field.checked;
-      else state.listing[key] = field.value;
+      const value = field.type === "checkbox" ? field.checked : field.value;
+      state.listing[key] = value;
+      captured[key] = value;
     });
 
-    const markets = [...document.querySelectorAll("[data-marketplace]:checked")]
-      .map((field) => field.dataset.marketplace)
-      .filter(Boolean);
-    if (markets.length) state.listing.marketplaces = markets;
+    const marketplaceFields = [...document.querySelectorAll("[data-marketplace]")];
+    if (marketplaceFields.length) {
+      const markets = marketplaceFields
+        .filter((field) => field.checked)
+        .map((field) => field.dataset.marketplace)
+        .filter(Boolean);
+      state.listing.marketplaces = markets;
+      captured.marketplaces = markets;
+    }
+
+    return captured;
   }
 
   function removeSaveBar() {
@@ -47,6 +57,7 @@
       row.setAttribute("role", "button");
       row.setAttribute("aria-label", "Open item for editing");
       row.style.cursor = "pointer";
+      row.style.touchAction = "manipulation";
     });
   }
 
@@ -79,12 +90,12 @@
           <strong style="display:block;font-size:14px">Editing inventory item</strong>
           <small data-save-note style="display:block;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw"></small>
         </div>
-        <button type="button" class="button" data-action="save-current-edit" style="white-space:nowrap;min-height:44px">Save changes</button>`;
+        <button type="button" class="button" data-action="save-current-edit" style="white-space:nowrap;min-height:44px;touch-action:manipulation">Save changes</button>`;
       document.body.appendChild(bar);
     }
 
     const note = bar.querySelector("[data-save-note]");
-    if (note) note.textContent = item.ebayItemId ? "Saves to SourceTro only" : "Saves and syncs";
+    if (note) note.textContent = item.ebayItemId ? "Saves every SourceTro field" : "Saves and syncs";
 
     const button = bar.querySelector('[data-action="save-current-edit"]');
     if (button) {
@@ -101,13 +112,22 @@
     }, 80);
   }
 
-  function verifyLocalRecord(id) {
+  function readStoredInventory() {
     try {
-      const records = JSON.parse(localStorage.getItem("sourcetro_inventory") || "[]");
-      return Array.isArray(records) ? records.find((item) => item.id === id) || null : null;
+      const records = JSON.parse(localStorage.getItem(INVENTORY_KEY) || "[]");
+      return Array.isArray(records) ? records : [];
     } catch {
-      return null;
+      return [];
     }
+  }
+
+  function valuesMatch(saved, captured) {
+    for (const [key, value] of Object.entries(captured)) {
+      const left = JSON.stringify(saved?.[key] ?? null);
+      const right = JSON.stringify(value ?? null);
+      if (left !== right) return false;
+    }
+    return true;
   }
 
   async function saveCurrentEdit() {
@@ -122,8 +142,8 @@
     ensureSaveBar();
 
     try {
-      captureVisibleFormIntoListing();
-
+      const captured = captureVisibleFormIntoListing();
+      const now = new Date().toISOString();
       const remotePhotos = Array.isArray(state.photos)
         ? state.photos.map((photo) => remotePhoto(photo?.url)).filter(Boolean)
         : [];
@@ -131,11 +151,13 @@
       const record = {
         ...original,
         ...state.listing,
+        ...captured,
         id: original.id,
         status: original.status || state.listing.status || "Draft",
-        photo: remotePhotos[0] || original.photo || null,
+        photo: remotePhotos[0] || remotePhoto(original.photo) || null,
         ebayPictureUrls: remotePhotos.length ? remotePhotos : (original.ebayPictureUrls || []),
-        updatedAt: new Date().toISOString(),
+        sourceTroEditedAt: original.ebayItemId ? now : (original.sourceTroEditedAt || ""),
+        updatedAt: now,
       };
 
       const index = state.inventory.findIndex((item) => item.id === original.id);
@@ -150,9 +172,12 @@
           : [],
       }));
 
-      saveJSON("sourcetro_inventory", persistent);
-      const verified = verifyLocalRecord(original.id);
-      if (!verified) throw new Error("SourceTro could not confirm the phone save.");
+      saveJSON(INVENTORY_KEY, persistent);
+
+      const verified = readStoredInventory().find((item) => item.id === original.id);
+      if (!verified || !valuesMatch(verified, captured)) {
+        throw new Error("SourceTro could not verify the saved changes on this device.");
+      }
 
       lastLocalSaveAt = Date.now();
       try { localStorage.setItem("sourcetro_sync_dirty", "1"); } catch {}
@@ -164,7 +189,7 @@
       setRoute("inventory");
       removeSaveBar();
       if (typeof showToast === "function") {
-        showToast("Saved on this phone. SourceTro is sending the change to your other device.");
+        showToast("Saved. Your SourceTro changes are stored and syncing.");
       }
     } catch (error) {
       if (typeof showToast === "function") showToast(error?.message || "SourceTro could not save that change.");
@@ -176,7 +201,7 @@
 
   async function refreshFromCloud() {
     if (document.visibilityState !== "visible") return;
-    if (Date.now() - lastLocalSaveAt < 20000) return;
+    if (Date.now() - lastLocalSaveAt < 30000) return;
     if (typeof state !== "undefined" && state.route === "new-listing" && existingItem()) return;
     if (!window.SourceTroCloud?.refreshFromCloud) return;
     try {
@@ -187,11 +212,11 @@
 
   function startRefreshLoop() {
     clearInterval(refreshTimer);
-    refreshTimer = setInterval(refreshFromCloud, 7000);
+    refreshTimer = setInterval(refreshFromCloud, 8000);
   }
 
   document.addEventListener("click", (event) => {
-    const saveButton = event.target.closest('[data-action="save-current-edit"]');
+    const saveButton = event.target.closest?.('[data-action="save-current-edit"]');
     if (saveButton) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -199,20 +224,20 @@
       return;
     }
 
-    if (event.target.closest('[data-edit-item]')) {
-      setTimeout(scheduleDecorate, 120);
+    if (event.target.closest?.('[data-edit-item]')) {
+      setTimeout(scheduleDecorate, 150);
       return;
     }
-    if (event.target.closest("button, a, input, select, textarea, label")) return;
+    if (event.target.closest?.("button, a, input, select, textarea, label")) return;
 
-    const row = event.target.closest("#inventoryResults .data-table tbody tr");
+    const row = event.target.closest?.("#inventoryResults .data-table tbody tr");
     if (!row) return;
     const editButton = editButtonForRow(row);
     if (!editButton) return;
 
     event.preventDefault();
     editButton.click();
-    setTimeout(scheduleDecorate, 120);
+    setTimeout(scheduleDecorate, 150);
   }, true);
 
   document.addEventListener("keydown", (event) => {
@@ -223,17 +248,17 @@
     if (!editButton) return;
     event.preventDefault();
     editButton.click();
-    setTimeout(scheduleDecorate, 120);
+    setTimeout(scheduleDecorate, 150);
   });
 
   window.addEventListener("hashchange", scheduleDecorate);
   window.addEventListener("pageshow", () => {
     scheduleDecorate();
-    setTimeout(refreshFromCloud, 250);
+    setTimeout(refreshFromCloud, 300);
   });
-  window.addEventListener("focus", () => setTimeout(refreshFromCloud, 180));
+  window.addEventListener("focus", () => setTimeout(refreshFromCloud, 250));
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") setTimeout(refreshFromCloud, 180);
+    if (document.visibilityState === "visible") setTimeout(refreshFromCloud, 250);
   });
 
   scheduleDecorate();
