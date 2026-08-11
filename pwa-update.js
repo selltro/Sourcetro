@@ -1,5 +1,5 @@
 (() => {
-  const BUILD = "37";
+  const BUILD = "40";
   const SW_URL = `service-worker.js?v=${BUILD}`;
   const RELOAD_MARKER = `sourcetro_sw_reloaded_${BUILD}`;
 
@@ -50,12 +50,12 @@
 
   window.addEventListener("load", () => {
     registerLatestWorker();
-    setTimeout(refreshCloud, 900);
+    setTimeout(refreshCloud, 1200);
   });
 
-  window.addEventListener("focus", () => setTimeout(refreshCloud, 150));
-  window.addEventListener("online", () => setTimeout(refreshCloud, 150));
+  window.addEventListener("focus", () => setTimeout(refreshCloud, 350));
+  window.addEventListener("online", () => setTimeout(refreshCloud, 350));
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") setTimeout(refreshCloud, 150);
+    if (document.visibilityState === "visible") setTimeout(refreshCloud, 350);
   });
 })();
