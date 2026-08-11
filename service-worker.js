@@ -1,8 +1,8 @@
-const CACHE = "sourcetro-v51-mobile-navigation-fix";
+const CACHE = "sourcetro-v52-resilient-scan";
 const SHELL = [
   "./",
   "./index.html",
-  "./?app=1&v=51",
+  "./?app=1&v=52",
   "./assets/sourcetro-mark.svg",
 ];
 
@@ -34,7 +34,7 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
         if (event.request.mode === "navigate") {
-          return (await caches.match("./?app=1&v=51")) || (await caches.match("./index.html"));
+          return (await caches.match("./?app=1&v=52")) || (await caches.match("./index.html"));
         }
         return Response.error();
       }),
