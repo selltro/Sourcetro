@@ -1,12 +1,15 @@
 {
+  "id": "./",
   "name": "SourceTro — From Source to Sold",
   "short_name": "SourceTro",
   "description": "Your Trusted Resale Operator for smarter sourcing, faster listings, inventory, orders, shipping, finances, and analytics.",
-  "start_url": "./",
+  "start_url": "./?app=1&v=32#dashboard",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#f7f3e9",
   "theme_color": "#16283a",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "assets/sourcetro-mark.svg",
