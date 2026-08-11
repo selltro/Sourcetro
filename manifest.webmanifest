@@ -3,7 +3,7 @@
   "name": "SourceTro — From Source to Sold",
   "short_name": "SourceTro",
   "description": "Your Trusted Resale Operator for smarter sourcing, faster listings, inventory, orders, shipping, finances, and analytics.",
-  "start_url": "./?app=1&v=32#dashboard",
+  "start_url": "./?app=1&v=33#dashboard",
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
