@@ -1,14 +1,12 @@
-const CACHE = "sourcetro-v50-low-memory-phone-scan";
+const CACHE = "sourcetro-v51-mobile-navigation-fix";
 const SHELL = [
   "./",
   "./index.html",
-  "./?app=1&v=50",
+  "./?app=1&v=51",
   "./assets/sourcetro-mark.svg",
 ];
 
 self.addEventListener("install", (event) => {
-  // Keep install light on phones. Other assets are cached one-by-one only after
-  // the browser actually requests them instead of downloading the whole app at once.
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
   self.skipWaiting();
 });
@@ -36,7 +34,7 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
         if (event.request.mode === "navigate") {
-          return (await caches.match("./?app=1&v=50")) || (await caches.match("./index.html"));
+          return (await caches.match("./?app=1&v=51")) || (await caches.match("./index.html"));
         }
         return Response.error();
       }),
