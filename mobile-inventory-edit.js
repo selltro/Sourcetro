@@ -61,6 +61,25 @@
     });
   }
 
+  function styleCompactSaveBar(bar) {
+    const mobile = window.matchMedia?.("(max-width: 760px)")?.matches;
+    bar.style.position = "fixed";
+    bar.style.left = "auto";
+    bar.style.right = mobile ? "12px" : "22px";
+    bar.style.bottom = mobile ? "82px" : "84px";
+    bar.style.zIndex = "9999";
+    bar.style.display = "flex";
+    bar.style.alignItems = "center";
+    bar.style.justifyContent = "flex-end";
+    bar.style.gap = "10px";
+    bar.style.width = "auto";
+    bar.style.maxWidth = mobile ? "calc(100vw - 24px)" : "340px";
+    bar.style.padding = "8px 9px 8px 12px";
+    bar.style.borderRadius = "14px";
+    bar.style.background = "#16283a";
+    bar.style.boxShadow = "0 10px 24px rgba(0,0,0,.22)";
+  }
+
   function ensureSaveBar() {
     const item = existingItem();
     if (!item) {
@@ -72,35 +91,24 @@
     if (!bar) {
       bar = document.createElement("div");
       bar.id = "sourceTroEditSaveBar";
-      bar.style.position = "fixed";
-      bar.style.left = "12px";
-      bar.style.right = "12px";
-      bar.style.bottom = "76px";
-      bar.style.zIndex = "9999";
-      bar.style.display = "flex";
-      bar.style.alignItems = "center";
-      bar.style.justifyContent = "space-between";
-      bar.style.gap = "10px";
-      bar.style.padding = "10px 12px";
-      bar.style.borderRadius = "16px";
-      bar.style.background = "#16283a";
-      bar.style.boxShadow = "0 12px 30px rgba(0,0,0,.24)";
       bar.innerHTML = `
-        <div style="min-width:0;color:white">
-          <strong style="display:block;font-size:14px">Editing inventory item</strong>
-          <small data-save-note style="display:block;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw"></small>
+        <div data-save-copy style="min-width:0;color:white;line-height:1.15">
+          <strong style="display:block;font-size:12px">Editing item</strong>
+          <small data-save-note style="display:block;opacity:.72;font-size:10px;white-space:nowrap"></small>
         </div>
-        <button type="button" class="button" data-action="save-current-edit" style="white-space:nowrap;min-height:44px;touch-action:manipulation">Save changes</button>`;
+        <button type="button" class="button" data-action="save-current-edit" style="white-space:nowrap;min-height:40px;padding:0 16px;touch-action:manipulation">Save</button>`;
       document.body.appendChild(bar);
     }
 
+    styleCompactSaveBar(bar);
+
     const note = bar.querySelector("[data-save-note]");
-    if (note) note.textContent = item.ebayItemId ? "Saves every SourceTro field" : "Saves and syncs";
+    if (note) note.textContent = item.ebayItemId ? "SourceTro only" : "Save & sync";
 
     const button = bar.querySelector('[data-action="save-current-edit"]');
     if (button) {
       button.disabled = saveBusy;
-      button.textContent = saveBusy ? "Saving…" : "Save changes";
+      button.textContent = saveBusy ? "Saving…" : "Save";
     }
   }
 
@@ -251,6 +259,7 @@
     setTimeout(scheduleDecorate, 150);
   });
 
+  window.addEventListener("resize", scheduleDecorate);
   window.addEventListener("hashchange", scheduleDecorate);
   window.addEventListener("pageshow", () => {
     scheduleDecorate();
