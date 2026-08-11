@@ -1,6 +1,7 @@
 (() => {
   const EBAY_GATEWAY_URL = "https://sourcetro-ebay-test.nydia-burgos.workers.dev";
   const OWNER_KEY_STORAGE = "sourcetro_owner_key";
+  const TRUSTED_OWNER_KEY = "sourcetro_trusted_owner_key";
   let updateBusy = false;
 
   function isImportedEbayEdit() {
@@ -11,7 +12,11 @@
 
   function ownerKey() {
     try {
-      return sessionStorage.getItem(OWNER_KEY_STORAGE) || "";
+      const session = sessionStorage.getItem(OWNER_KEY_STORAGE) || "";
+      if (session) return session;
+      const trusted = localStorage.getItem(TRUSTED_OWNER_KEY) || "";
+      if (trusted) sessionStorage.setItem(OWNER_KEY_STORAGE, trusted);
+      return trusted;
     } catch {
       return "";
     }
@@ -21,17 +26,39 @@
     return /^https?:\/\//i.test(String(value || "")) ? value : null;
   }
 
+  function captureVisibleFormIntoListing() {
+    if (!isImportedEbayEdit()) return;
+    document.querySelectorAll("[data-bind]").forEach((field) => {
+      const key = field.dataset.bind;
+      if (!key) return;
+      state.listing[key] = field.type === "checkbox" ? field.checked : field.value;
+    });
+
+    const marketplaceFields = [...document.querySelectorAll("[data-marketplace]")];
+    if (marketplaceFields.length) {
+      state.listing.marketplaces = marketplaceFields
+        .filter((field) => field.checked)
+        .map((field) => field.dataset.marketplace)
+        .filter(Boolean);
+    }
+  }
+
   function originalInventoryItem() {
     if (!isImportedEbayEdit()) return null;
     return state.inventory.find((item) => item.id === state.listing.id || item.ebayItemId === state.listing.ebayItemId) || null;
   }
 
   function persistImportedItem(liveItem = null) {
+    captureVisibleFormIntoListing();
     const itemId = state.listing.ebayItemId;
     const id = state.listing.id || `EBAY-${itemId}`;
     const existingIndex = state.inventory.findIndex((item) => item.id === id || item.ebayItemId === itemId);
     const existing = existingIndex >= 0 ? state.inventory[existingIndex] : {};
-    const remotePhotos = state.photos.map((photo) => remotePhoto(photo.url)).filter(Boolean);
+    const remotePhotos = Array.isArray(state.photos)
+      ? state.photos.map((photo) => remotePhoto(photo.url)).filter(Boolean)
+      : [];
+    const now = new Date().toISOString();
+
     const record = {
       ...existing,
       ...state.listing,
@@ -41,13 +68,19 @@
       title: liveItem?.title || state.listing.title || existing.title || `eBay item ${itemId}`,
       listPrice: liveItem?.price || state.listing.listPrice || existing.listPrice || "",
       description: liveItem?.description || state.listing.description || existing.description || "",
-      ebayDescription: liveItem?.description || state.listing.description || existing.ebayDescription || "",
+      ebayDescription: liveItem?.description || existing.ebayDescription || state.listing.description || "",
       ebayDescriptionHtml: liveItem?.descriptionHtml || existing.ebayDescriptionHtml || "",
-      photo: remotePhotos[0] || existing.photo || null,
+      photo: remotePhotos[0] || remotePhoto(existing.photo) || null,
       ebayPictureUrls: remotePhotos.length ? remotePhotos : (existing.ebayPictureUrls || []),
       ebayItemSpecifics: liveItem?.itemSpecifics || existing.ebayItemSpecifics || state.listing.ebayItemSpecifics || {},
       ebayUrl: liveItem?.viewItemUrl || existing.ebayUrl || state.listing.ebayUrl || "",
-      updatedAt: new Date().toISOString(),
+      ebayLiveTitle: liveItem?.title || existing.ebayLiveTitle || existing.title || "",
+      ebayLivePrice: liveItem?.price || existing.ebayLivePrice || existing.listPrice || "",
+      ebayLiveDescription: liveItem?.description || existing.ebayLiveDescription || existing.ebayDescription || existing.description || "",
+      ebayLiveCondition: liveItem?.condition || existing.ebayLiveCondition || "",
+      ebayCategoryName: liveItem?.categoryName || existing.ebayCategoryName || "",
+      sourceTroEditedAt: now,
+      updatedAt: now,
     };
 
     if (existingIndex >= 0) state.inventory[existingIndex] = record;
@@ -64,27 +97,32 @@
     return record;
   }
 
-  function saveImportedItemLocally() {
+  async function saveImportedItemLocally() {
     persistImportedItem();
+    try { localStorage.setItem("sourcetro_sync_dirty", "1"); } catch {}
+    if (window.SourceTroCloud?.syncNow) {
+      try { await window.SourceTroCloud.syncNow(); } catch {}
+    }
     setRoute("inventory");
     showToast("Saved in SourceTro. Your live eBay listing was not changed.");
   }
 
   function collectLiveChanges() {
+    captureVisibleFormIntoListing();
     const original = originalInventoryItem();
     if (!original) return {};
     const changes = {};
 
     const currentTitle = String(state.listing.title || "").trim();
-    const originalTitle = String(original.title || "").trim();
+    const originalTitle = String(original.ebayLiveTitle || original.title || "").trim();
     if (currentTitle && currentTitle !== originalTitle) changes.title = currentTitle;
 
     const currentDescription = String(state.listing.description || "").trim();
-    const originalDescription = String(original.ebayDescription || original.description || "").trim();
+    const originalDescription = String(original.ebayLiveDescription || original.ebayDescription || original.description || "").trim();
     if (currentDescription && currentDescription !== originalDescription) changes.description = currentDescription;
 
     const currentPrice = Number(state.listing.listPrice || 0);
-    const originalPrice = Number(original.listPrice || 0);
+    const originalPrice = Number(original.ebayLivePrice || original.listPrice || 0);
     if (currentPrice > 0 && Math.abs(currentPrice - originalPrice) >= 0.005) changes.price = currentPrice;
 
     return changes;
@@ -130,10 +168,7 @@
         cache: "no-store",
         credentials: "omit",
         referrerPolicy: "no-referrer",
-        body: JSON.stringify({
-          itemId: state.listing.ebayItemId,
-          changes,
-        }),
+        body: JSON.stringify({ itemId: state.listing.ebayItemId, changes }),
       });
 
       const result = await response.json().catch(() => ({}));
@@ -145,6 +180,9 @@
       }
 
       persistImportedItem(result.item || null);
+      if (window.SourceTroCloud?.syncNow) {
+        try { await window.SourceTroCloud.syncNow(); } catch {}
+      }
       setRoute("inventory");
       const fields = Array.isArray(result.changedFields) ? result.changedFields.join(", ") : "listing";
       showToast(`eBay updated successfully: ${fields}.`);
@@ -162,14 +200,11 @@
     const saveButton = document.querySelector('[data-action="save-draft"]');
     const updateButton = document.querySelector('[data-action="publish-listing"]');
 
-    if (saveButton && saveButton.textContent !== "Save in SourceTro") {
-      saveButton.textContent = "Save in SourceTro";
-    }
+    if (saveButton && saveButton.textContent !== "Save in SourceTro") saveButton.textContent = "Save in SourceTro";
 
     if (updateButton) {
       updateButton.disabled = updateBusy;
-      const label = updateBusy ? "Updating eBay…" : "Update eBay →";
-      if (updateButton.textContent !== label) updateButton.textContent = label;
+      updateButton.textContent = updateBusy ? "Updating eBay…" : "Update eBay →";
       updateButton.title = "Updates only the live eBay title, description, or price after you confirm the exact changes.";
     }
 
@@ -180,14 +215,14 @@
       note.className = "muted";
       note.style.margin = "10px 0 0";
       note.style.width = "100%";
-      note.textContent = "Imported eBay listing: Save in SourceTro never changes eBay. Update eBay changes only title, description, or price and always asks you to confirm first.";
+      note.textContent = "Save in SourceTro keeps every SourceTro field. Update eBay changes only title, description, or price and asks you to confirm first.";
       footer.appendChild(note);
     }
   }
 
   document.addEventListener("click", (event) => {
     if (!isImportedEbayEdit()) return;
-    const action = event.target.closest("[data-action]")?.dataset.action;
+    const action = event.target.closest?.("[data-action]")?.dataset.action;
 
     if (action === "save-draft") {
       event.preventDefault();
