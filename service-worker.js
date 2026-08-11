@@ -7,6 +7,7 @@ const ASSETS = [
   "./mobile-navigation.css?v=47",
   "./trusted-session.js?v=47",
   "./app.js?v=47",
+  "./scan-launch.js?v=47",
   "./tro-chat.js?v=47",
   "./memory-guard.js?v=47",
   "./ebay-oauth.js?v=47",
