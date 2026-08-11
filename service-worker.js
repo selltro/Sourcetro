@@ -1,17 +1,19 @@
-const CACHE = "sourcetro-v30-phone-inventory-edit";
+const CACHE = "sourcetro-v32-installed-app";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=14",
-  "./app.js?v=14",
-  "./memory-guard.js?v=15",
-  "./ebay-oauth.js?v=20",
-  "./ebay-import.js?v=24",
-  "./ebay-edit-safety.js?v=26",
-  "./cloud-sync.js?v=28",
-  "./sync-recovery.js?v=29",
-  "./mobile-inventory-edit.js?v=30",
-  "./manifest.webmanifest",
+  "./?app=1&v=32",
+  "./styles.css?v=32",
+  "./app.js?v=32",
+  "./memory-guard.js?v=32",
+  "./ebay-oauth.js?v=32",
+  "./ebay-import.js?v=32",
+  "./ebay-edit-safety.js?v=32",
+  "./cloud-sync.js?v=32",
+  "./sync-recovery.js?v=32",
+  "./mobile-inventory-edit.js?v=32",
+  "./pwa-update.js?v=32",
+  "./manifest.webmanifest?v=32",
   "./assets/sourcetro-mark.svg",
 ];
 
@@ -31,8 +33,9 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: "no-store" })
       .then((response) => {
         if (response && response.status === 200) {
           const copy = response.clone();
@@ -40,6 +43,13 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html"))),
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (event.request.mode === "navigate") {
+          return (await caches.match("./?app=1&v=32")) || (await caches.match("./index.html"));
+        }
+        return Response.error();
+      }),
   );
 });
