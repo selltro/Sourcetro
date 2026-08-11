@@ -2,6 +2,7 @@
   let saveBusy = false;
   let refreshTimer = null;
   let decorateTimer = null;
+  let lastLocalSaveAt = 0;
 
   function remotePhoto(value) {
     return /^https?:\/\//i.test(String(value || "")) ? value : null;
@@ -17,6 +18,22 @@
       item.id === state.listing.id ||
       (state.listing.ebayItemId && item.ebayItemId === state.listing.ebayItemId)
     ) || null;
+  }
+
+  function captureVisibleFormIntoListing() {
+    if (typeof state === "undefined" || !state.listing) return;
+
+    document.querySelectorAll("[data-bind]").forEach((field) => {
+      const key = field.dataset.bind;
+      if (!key) return;
+      if (field.type === "checkbox") state.listing[key] = field.checked;
+      else state.listing[key] = field.value;
+    });
+
+    const markets = [...document.querySelectorAll("[data-marketplace]:checked")]
+      .map((field) => field.dataset.marketplace)
+      .filter(Boolean);
+    if (markets.length) state.listing.marketplaces = markets;
   }
 
   function removeSaveBar() {
@@ -72,8 +89,7 @@
     const button = bar.querySelector('[data-action="save-current-edit"]');
     if (button) {
       button.disabled = saveBusy;
-      const wanted = saveBusy ? "Saving…" : "Save changes";
-      if (button.textContent !== wanted) button.textContent = wanted;
+      button.textContent = saveBusy ? "Saving…" : "Save changes";
     }
   }
 
@@ -83,6 +99,15 @@
       decorateRows();
       ensureSaveBar();
     }, 80);
+  }
+
+  function verifyLocalRecord(id) {
+    try {
+      const records = JSON.parse(localStorage.getItem("sourcetro_inventory") || "[]");
+      return Array.isArray(records) ? records.find((item) => item.id === id) || null : null;
+    } catch {
+      return null;
+    }
   }
 
   async function saveCurrentEdit() {
@@ -97,6 +122,8 @@
     ensureSaveBar();
 
     try {
+      captureVisibleFormIntoListing();
+
       const remotePhotos = Array.isArray(state.photos)
         ? state.photos.map((photo) => remotePhoto(photo?.url)).filter(Boolean)
         : [];
@@ -124,19 +151,20 @@
       }));
 
       saveJSON("sourcetro_inventory", persistent);
+      const verified = verifyLocalRecord(original.id);
+      if (!verified) throw new Error("SourceTro could not confirm the phone save.");
 
-      let cloudSaved = false;
+      lastLocalSaveAt = Date.now();
+      try { localStorage.setItem("sourcetro_sync_dirty", "1"); } catch {}
+
       if (window.SourceTroCloud?.syncNow) {
-        await window.SourceTroCloud.syncNow();
-        cloudSaved = Boolean(window.SourceTroCloud.status?.().remembered);
+        try { await window.SourceTroCloud.syncNow(); } catch {}
       }
 
       setRoute("inventory");
       removeSaveBar();
       if (typeof showToast === "function") {
-        showToast(cloudSaved
-          ? "Saved. Your SourceTro devices will update from the cloud."
-          : "Saved on this phone. Cloud sync is locked on this device.");
+        showToast("Saved on this phone. SourceTro is sending the change to your other device.");
       }
     } catch (error) {
       if (typeof showToast === "function") showToast(error?.message || "SourceTro could not save that change.");
@@ -148,6 +176,7 @@
 
   async function refreshFromCloud() {
     if (document.visibilityState !== "visible") return;
+    if (Date.now() - lastLocalSaveAt < 20000) return;
     if (typeof state !== "undefined" && state.route === "new-listing" && existingItem()) return;
     if (!window.SourceTroCloud?.refreshFromCloud) return;
     try {
