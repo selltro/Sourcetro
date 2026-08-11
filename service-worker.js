@@ -1,33 +1,15 @@
 const CACHE = "sourcetro-v50-low-memory-phone-scan";
-const ASSETS = [
+const SHELL = [
   "./",
   "./index.html",
   "./?app=1&v=50",
-  "./styles.css?v=50",
-  "./mobile-navigation.css?v=50",
-  "./trusted-session.js?v=50",
-  "./phone-stability-v50.js?v=50",
-  "./mobile-image-pipeline-v50.js?v=50",
-  "./app.js?v=50",
-  "./tro-chat.js?v=50",
-  "./memory-guard.js?v=50",
-  "./ebay-oauth.js?v=50",
-  "./ebay-import.js?v=50",
-  "./ebay-edit-safety.js?v=50",
-  "./seller-workflow.js?v=50",
-  "./scan-polish-v49.js?v=50",
-  "./discovery-scan.js?v=50",
-  "./cloud-sync.js?v=50",
-  "./sync-recovery.js?v=50",
-  "./mobile-inventory-edit.js?v=50",
-  "./ui-stability.js?v=50",
-  "./pwa-update.js?v=50",
-  "./manifest.webmanifest?v=50",
   "./assets/sourcetro-mark.svg",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+  // Keep install light on phones. Other assets are cached one-by-one only after
+  // the browser actually requests them instead of downloading the whole app at once.
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
   self.skipWaiting();
 });
 
@@ -46,7 +28,7 @@ self.addEventListener("fetch", (event) => {
       .then((response) => {
         if (response && response.status === 200) {
           const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy)).catch(() => {});
         }
         return response;
       })
