@@ -2,13 +2,14 @@
   const EBAY_GATEWAY_URL = "https://sourcetro-ebay-test.nydia-burgos.workers.dev";
   const OWNER_KEY_STORAGE = "sourcetro_owner_key";
   const TRUSTED_OWNER_KEY = "sourcetro_trusted_owner_key";
+  const CONFIRMED_STORAGE = "sourcetro_ebay_confirmed_connection";
   const HEARTBEAT_MS = 20 * 60 * 1000;
   const MIN_RECHECK_MS = 30 * 1000;
 
   const ebayStatus = {
     checked: false,
     busy: false,
-    connected: false,
+    connected: readConfirmed(),
     setupReady: false,
     needsReconnect: false,
     policiesChecked: false,
@@ -33,6 +34,17 @@
     } catch {
       return "";
     }
+  }
+
+  function readConfirmed() {
+    try { return localStorage.getItem(CONFIRMED_STORAGE) === "true"; } catch { return false; }
+  }
+
+  function saveConfirmed(value) {
+    try {
+      if (value) localStorage.setItem(CONFIRMED_STORAGE, "true");
+      else localStorage.removeItem(CONFIRMED_STORAGE);
+    } catch {}
   }
 
   function setTextIfChanged(node, value) {
@@ -65,21 +77,31 @@
     return data;
   }
 
-  function setLocalConnection(connected) {
-    if (typeof state === "undefined") return;
-    const changed = Boolean(state.marketplaceConnections?.eBay) !== Boolean(connected);
-    state.marketplaceConnections.eBay = Boolean(connected);
-    try { saveJSON("sourcetro_connections", state.marketplaceConnections); } catch {}
-    if (changed && state.route === "marketplaces") render();
+  function localConnectionWasConfirmed() {
+    try {
+      return readConfirmed() || Boolean(state?.marketplaceConnections?.eBay);
+    } catch {
+      return readConfirmed();
+    }
+  }
+
+  function setLocalConnection(connected, persist = true) {
+    try {
+      if (typeof state !== "undefined") {
+        const changed = Boolean(state.marketplaceConnections?.eBay) !== Boolean(connected);
+        state.marketplaceConnections.eBay = Boolean(connected);
+        try { saveJSON("sourcetro_connections", state.marketplaceConnections); } catch {}
+        if (changed && state.route === "marketplaces") render();
+      }
+    } catch {}
+    if (persist) saveConfirmed(Boolean(connected));
   }
 
   function decorateEbayCard() {
     const button = document.querySelector('[data-connect-market="eBay"]');
     if (!button) return;
-
     const card = button.closest(".connect-card");
     const statusNode = card?.querySelector(".connect-status");
-
     button.classList.remove("secondary");
 
     if (!ownerKey()) {
@@ -90,26 +112,8 @@
       return;
     }
 
-    if (ebayStatus.busy && !ebayStatus.checked) {
-      button.disabled = true;
-      setTextIfChanged(button, "Checking eBay…");
-      setTextIfChanged(statusNode, "Restoring your saved eBay connection automatically…");
-      return;
-    }
-
-    if (!ebayStatus.checked) {
-      button.disabled = true;
-      setTextIfChanged(button, "Checking eBay…");
-      setTextIfChanged(statusNode, "Checking your saved Production connection…");
-      return;
-    }
-
     if (ebayStatus.connected) {
-      const needsLocation = ebayStatus.policiesChecked
-        && ebayStatus.policiesReady
-        && ebayStatus.locationsChecked
-        && !ebayStatus.locationReady;
-
+      const needsLocation = ebayStatus.policiesChecked && ebayStatus.policiesReady && ebayStatus.locationsChecked && !ebayStatus.locationReady;
       if (needsLocation) {
         button.disabled = ebayStatus.busy;
         setTextIfChanged(button, ebayStatus.busy ? "Working…" : "Create ship-from");
@@ -121,26 +125,27 @@
       button.disabled = true;
       button.classList.add("secondary");
       setTextIfChanged(button, "Always connected ✓");
-
-      let message = "✓ eBay stays connected automatically";
-      if (!ebayStatus.policiesChecked) message = "✓ eBay connected — checking business policies…";
-      else if (!ebayStatus.policiesReady) message = "✓ eBay connected — business policies need attention";
-      else if (!ebayStatus.locationsChecked) message = "✓ eBay connected — checking ship-from location…";
-      else if (ebayStatus.locationReady) message = "✓ eBay ready — SourceTro will renew access automatically";
-
+      let message = ebayStatus.busy ? "✓ eBay connected — checking saved authorization…" : "✓ eBay stays connected automatically";
+      if (ebayStatus.checked && ebayStatus.policiesChecked && ebayStatus.policiesReady && ebayStatus.locationsChecked && ebayStatus.locationReady) {
+        message = "✓ eBay ready — SourceTro renews access automatically";
+      }
       setTextIfChanged(statusNode, message);
       statusNode?.classList.add("connected");
       return;
     }
 
+    if (ebayStatus.busy && !ebayStatus.checked) {
+      button.disabled = true;
+      setTextIfChanged(button, "Checking eBay…");
+      setTextIfChanged(statusNode, "Checking your saved eBay authorization…");
+      return;
+    }
+
     button.disabled = ebayStatus.busy;
     setTextIfChanged(button, ebayStatus.busy ? "Connecting…" : (ebayStatus.needsReconnect ? "Reconnect eBay" : "Connect eBay"));
-    setTextIfChanged(
-      statusNode,
-      ebayStatus.needsReconnect
-        ? "eBay authorization was revoked or expired — one new approval is required"
-        : "Connect once; SourceTro will keep the connection renewed automatically"
-    );
+    setTextIfChanged(statusNode, ebayStatus.needsReconnect
+      ? "eBay says the saved authorization expired or was revoked — one new approval is required"
+      : "Connect once; SourceTro will keep the connection renewed automatically");
     statusNode?.classList.remove("connected");
   }
 
@@ -179,10 +184,9 @@
       decorateEbayCard();
       return;
     }
-
     if (!force && ebayStatus.lastCheckedAt && Date.now() - ebayStatus.lastCheckedAt < MIN_RECHECK_MS) return;
 
-    const previouslyConnected = ebayStatus.connected || Boolean(state?.marketplaceConnections?.eBay);
+    const previouslyConnected = ebayStatus.connected || localConnectionWasConfirmed();
     ebayStatus.busy = true;
     decorateEbayCard();
 
@@ -191,20 +195,37 @@
       ebayStatus.checked = true;
       ebayStatus.lastCheckedAt = Date.now();
       ebayStatus.setupReady = Boolean(result.setupReady);
-      ebayStatus.connected = Boolean(result.connected);
-      ebayStatus.needsReconnect = Boolean(result.needsReconnect);
       ebayStatus.refreshTokenExpiresAt = result.refreshTokenExpiresAt || null;
       ebayStatus.error = result.error || "";
-      setLocalConnection(ebayStatus.connected);
+
+      if (result.connected === true) {
+        ebayStatus.connected = true;
+        ebayStatus.needsReconnect = false;
+        setLocalConnection(true);
+      } else if (result.needsReconnect === true) {
+        // Only eBay explicitly telling us the authorization is no longer valid
+        // is allowed to turn a previously confirmed connection off.
+        ebayStatus.connected = false;
+        ebayStatus.needsReconnect = true;
+        setLocalConnection(false);
+      } else if (previouslyConnected) {
+        // Temporary worker/network/KV timing issues should never send the seller
+        // back through OAuth again.
+        ebayStatus.connected = true;
+        ebayStatus.needsReconnect = false;
+        setLocalConnection(true);
+      } else {
+        ebayStatus.connected = false;
+        ebayStatus.needsReconnect = false;
+      }
     } catch (error) {
       ebayStatus.checked = true;
       ebayStatus.lastCheckedAt = Date.now();
       ebayStatus.error = error.message || "Could not check eBay connection.";
-      // A temporary network failure should not make SourceTro forget a connection
-      // that was already confirmed on this device.
       if (previouslyConnected) {
         ebayStatus.connected = true;
         ebayStatus.needsReconnect = false;
+        setLocalConnection(true);
       }
     } finally {
       ebayStatus.busy = false;
@@ -216,7 +237,11 @@
 
   async function beginEbayConnect() {
     if (!ownerKey()) {
-      if (typeof showToast === "function") showToast("Open SourceTro secure access once on this device. After that, eBay will stay connected automatically.");
+      if (typeof showToast === "function") showToast("Restore SourceTro secure access on this device first.");
+      return;
+    }
+    if (ebayStatus.connected) {
+      if (typeof showToast === "function") showToast("eBay is already connected. SourceTro renews access automatically.");
       return;
     }
 
@@ -243,11 +268,9 @@
       ebayStatus.busy = false;
       ebayStatus.locationsChecked = false;
       await refreshLocations();
-      if (typeof showToast === "function") {
-        showToast(ebayStatus.locationReady
-          ? "Budget Basket ship-from location is ready on eBay."
-          : "eBay received the ship-from setup, but it is not ready yet.");
-      }
+      if (typeof showToast === "function") showToast(ebayStatus.locationReady
+        ? "Budget Basket ship-from location is ready on eBay."
+        : "eBay received the ship-from setup, but it is not ready yet.");
     } catch (error) {
       ebayStatus.busy = false;
       ebayStatus.error = error.message || "Could not create the eBay ship-from location.";
@@ -266,27 +289,16 @@
   document.addEventListener("click", (event) => {
     const button = event.target.closest?.('[data-connect-market="eBay"]');
     if (!button) return;
-
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
 
-    const needsLocation = ebayStatus.connected
-      && ebayStatus.policiesChecked
-      && ebayStatus.policiesReady
-      && ebayStatus.locationsChecked
-      && !ebayStatus.locationReady;
-
-    if (needsLocation) {
-      createShipFromLocation();
-      return;
-    }
-
+    const needsLocation = ebayStatus.connected && ebayStatus.policiesChecked && ebayStatus.policiesReady && ebayStatus.locationsChecked && !ebayStatus.locationReady;
+    if (needsLocation) return void createShipFromLocation();
     if (ebayStatus.connected) {
       if (typeof showToast === "function") showToast("eBay is already connected. SourceTro renews access automatically.");
       return;
     }
-
     beginEbayConnect();
   }, true);
 
@@ -299,7 +311,6 @@
       if (location.hash.replace("#", "") === "marketplaces") refreshEbayStatus(true);
     }, 60);
   });
-
   window.addEventListener("focus", () => setTimeout(() => refreshEbayStatus(), 250));
   window.addEventListener("online", () => setTimeout(() => refreshEbayStatus(true), 250));
   document.addEventListener("visibilitychange", () => {
@@ -322,9 +333,19 @@
     history.replaceState({}, "", `${location.pathname}${location.hash || "#marketplaces"}`);
   }
 
+  if (localConnectionWasConfirmed()) {
+    ebayStatus.connected = true;
+    setLocalConnection(true);
+  }
+
   setTimeout(() => {
     decorateEbayCard();
     refreshEbayStatus(true);
   }, 350);
   scheduleHeartbeat();
+
+  window.SourceTroEbayConnection = {
+    refresh: () => refreshEbayStatus(true),
+    isConnected: () => ebayStatus.connected,
+  };
 })();
