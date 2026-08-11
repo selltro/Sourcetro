@@ -1,27 +1,28 @@
-const CACHE = "sourcetro-v49-mobile-scan-stability";
+const CACHE = "sourcetro-v50-low-memory-phone-scan";
 const ASSETS = [
   "./",
   "./index.html",
-  "./?app=1&v=49",
-  "./styles.css?v=49",
-  "./mobile-navigation.css?v=49",
-  "./trusted-session.js?v=49",
-  "./phone-stability-v49.js?v=49",
-  "./app.js?v=49",
-  "./tro-chat.js?v=49",
-  "./memory-guard.js?v=49",
-  "./ebay-oauth.js?v=49",
-  "./ebay-import.js?v=49",
-  "./ebay-edit-safety.js?v=49",
-  "./seller-workflow.js?v=49",
-  "./scan-polish-v49.js?v=49",
-  "./discovery-scan.js?v=49",
-  "./cloud-sync.js?v=49",
-  "./sync-recovery.js?v=49",
-  "./mobile-inventory-edit.js?v=49",
-  "./ui-stability.js?v=49",
-  "./pwa-update.js?v=49",
-  "./manifest.webmanifest?v=49",
+  "./?app=1&v=50",
+  "./styles.css?v=50",
+  "./mobile-navigation.css?v=50",
+  "./trusted-session.js?v=50",
+  "./phone-stability-v50.js?v=50",
+  "./mobile-image-pipeline-v50.js?v=50",
+  "./app.js?v=50",
+  "./tro-chat.js?v=50",
+  "./memory-guard.js?v=50",
+  "./ebay-oauth.js?v=50",
+  "./ebay-import.js?v=50",
+  "./ebay-edit-safety.js?v=50",
+  "./seller-workflow.js?v=50",
+  "./scan-polish-v49.js?v=50",
+  "./discovery-scan.js?v=50",
+  "./cloud-sync.js?v=50",
+  "./sync-recovery.js?v=50",
+  "./mobile-inventory-edit.js?v=50",
+  "./ui-stability.js?v=50",
+  "./pwa-update.js?v=50",
+  "./manifest.webmanifest?v=50",
   "./assets/sourcetro-mark.svg",
 ];
 
@@ -53,7 +54,7 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
         if (event.request.mode === "navigate") {
-          return (await caches.match("./?app=1&v=49")) || (await caches.match("./index.html"));
+          return (await caches.match("./?app=1&v=50")) || (await caches.match("./index.html"));
         }
         return Response.error();
       }),
