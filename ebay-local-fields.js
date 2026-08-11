@@ -1,5 +1,7 @@
 (() => {
   const LOCAL_FIELDS = [
+    "category",
+    "condition",
     "brand",
     "size",
     "color",
