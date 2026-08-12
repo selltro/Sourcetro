@@ -1,5 +1,5 @@
 (() => {
-  const BUILD = "52";
+  const BUILD = "53";
   const SESSION_KEY = "sourcetro_owner_key";
   const TRUSTED_KEY = "sourcetro_trusted_owner_key";
 
