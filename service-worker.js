@@ -1,42 +1,102 @@
-const CACHE = "sourcetro-v52-resilient-scan";
+const CACHE = "sourcetro-v53-mobile-core";
+const APP_START = "./?app=1&v=53";
 const SHELL = [
   "./",
   "./index.html",
-  "./?app=1&v=52",
+  APP_START,
+  "./manifest.webmanifest?v=53",
+  "./styles.css?v=53",
+  "./mobile-navigation.css?v=53",
   "./assets/sourcetro-mark.svg",
+  "./trusted-session.js?v=53",
+  "./phone-stability-v52.js?v=53",
+  "./mobile-image-pipeline-v52.js?v=53",
+  "./app.js?v=53",
+  "./tro-chat.js?v=53",
+  "./memory-guard.js?v=53",
+  "./ebay-oauth.js?v=53",
+  "./ebay-import.js?v=53",
+  "./ebay-edit-safety.js?v=53",
+  "./seller-workflow.js?v=53",
+  "./discovery-scan-v52.js?v=53",
+  "./cloud-sync.js?v=53",
+  "./sync-recovery.js?v=53",
+  "./mobile-inventory-edit.js?v=53",
+  "./ui-stability.js?v=53",
+  "./pwa-update.js?v=53",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => Promise.all(
+      SHELL.map((url) => cache.add(url).catch(() => null)),
+    )),
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith("sourcetro-") && key !== CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });
 
+function cacheable(response) {
+  return Boolean(response && response.ok && (response.type === "basic" || response.type === "default"));
+}
+
+async function cachedFirst(request, event) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(request);
+  const network = fetch(request, { cache: "no-store" })
+    .then((response) => {
+      if (cacheable(response)) cache.put(request, response.clone()).catch(() => {});
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    event.waitUntil(network.then(() => undefined));
+    return cached;
+  }
+
+  return (await network) || Response.error();
+}
+
+async function navigationResponse(request, event) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(request)
+    || await cache.match(APP_START)
+    || await cache.match("./index.html")
+    || await cache.match("./");
+
+  const network = fetch(request, { cache: "no-store" })
+    .then((response) => {
+      if (cacheable(response)) cache.put(request, response.clone()).catch(() => {});
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    event.waitUntil(network.then(() => undefined));
+    return cached;
+  }
+
+  return (await network) || Response.error();
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(
-    fetch(event.request, { cache: "no-store" })
-      .then((response) => {
-        if (response && response.status === 200) {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy)).catch(() => {});
-        }
-        return response;
-      })
-      .catch(async () => {
-        const cached = await caches.match(event.request);
-        if (cached) return cached;
-        if (event.request.mode === "navigate") {
-          return (await caches.match("./?app=1&v=52")) || (await caches.match("./index.html"));
-        }
-        return Response.error();
-      }),
-  );
+
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(navigationResponse(event.request, event));
+    return;
+  }
+
+  event.respondWith(cachedFirst(event.request, event));
 });
