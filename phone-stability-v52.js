@@ -1,5 +1,5 @@
 (() => {
-  const BUILD = "53";
+  const BUILD = "54";
   const SESSION_KEY = "sourcetro_owner_key";
   const TRUSTED_KEY = "sourcetro_trusted_owner_key";
 
@@ -36,8 +36,9 @@
     }, { once: true });
   }
 
+  const mobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   window.SourceTroPhone = {
     build: BUILD,
-    lowMemoryMode: /Android/i.test(navigator.userAgent) || (Number(navigator.deviceMemory || 8) <= 4),
+    lowMemoryMode: mobileDevice || (Number(navigator.deviceMemory || 8) <= 4),
   };
 })();
