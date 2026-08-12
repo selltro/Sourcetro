@@ -1,8 +1,9 @@
 (() => {
-  const ANDROID = /Android/i.test(navigator.userAgent);
-  const MAX_BATCH_PHOTOS = ANDROID ? 5 : 8;
-  const MAX_AI_DIMENSION = ANDROID ? 1200 : 1400;
-  const AI_JPEG_QUALITY = ANDROID ? 0.72 : 0.82;
+  const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const LOW_MEMORY = Boolean(window.SourceTroPhone?.lowMemoryMode) || MOBILE || Number(navigator.deviceMemory || 8) <= 4;
+  const MAX_BATCH_PHOTOS = LOW_MEMORY ? 3 : 8;
+  const MAX_AI_DIMENSION = LOW_MEMORY ? 900 : 1400;
+  const AI_JPEG_QUALITY = LOW_MEMORY ? 0.62 : 0.82;
 
   function isBlobUrl(url) {
     return typeof url === "string" && url.startsWith("blob:");
@@ -103,14 +104,14 @@
     if (!response.ok) throw new Error("SourceTro could not open that photo.");
     const blob = await response.blob();
 
-    // v50 pre-compresses camera photos before app.js stores them. If the file is
-    // already small, avoid another full image decode and simply encode it for AI.
-    if (blob.size <= 850_000 && /^image\/(jpeg|png|webp)$/i.test(blob.type || "")) {
+    // v54 camera photos are compressed aggressively before storage. Do not
+    // decode an already-small photo a second time just to prepare the AI body.
+    if (blob.size <= (LOW_MEMORY ? 520_000 : 850_000) && /^image\/(jpeg|png|webp)$/i.test(blob.type || "")) {
       return blobToSmallDataURL(blob);
     }
 
     if (typeof createImageBitmap !== "function") {
-      if (blob.size <= 1_200_000) return blobToSmallDataURL(blob);
+      if (blob.size <= (LOW_MEMORY ? 700_000 : 1_200_000)) return blobToSmallDataURL(blob);
       throw new Error("That photo is too large for this phone. Retake it through SourceTro so it can be compressed first.");
     }
 
@@ -131,6 +132,7 @@
       if (canvas) {
         canvas.width = 1;
         canvas.height = 1;
+        canvas.remove?.();
       }
     }
   }
