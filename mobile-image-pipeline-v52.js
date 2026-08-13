@@ -108,6 +108,26 @@
     } catch { return false; }
   }
 
+  function commitSourcePhoto(file) {
+    if (!file || typeof state === "undefined") return false;
+    if (state.sourcePhoto?.url?.startsWith("blob:") && !state.sourcePhoto?.fromBatch) {
+      URL.revokeObjectURL(state.sourcePhoto.url);
+    }
+    state.sourcePhoto = {
+      name: file.name || "sourcetro-scan.jpg",
+      url: URL.createObjectURL(file),
+      memorySafe: true,
+      compressedBytes: file.size || 0,
+    };
+    state.sourceResult = null;
+    state.lastAIAnalysis = null;
+    if ("aiError" in state) state.aiError = "";
+    if (typeof render === "function") render();
+    if (typeof setTroState === "function") setTroState("listening", "Photo ready — Tro is identifying it.", 1600);
+    setTimeout(() => window.SourceTroDiscovery?.start?.(), 100);
+    return true;
+  }
+
   function cameraOverlay() {
     let overlay = document.querySelector("#sourceTroLiteCamera");
     if (overlay) return overlay;
@@ -218,22 +238,12 @@
       const blob = await canvasBlob(canvas, .50);
       if (!blob) return;
 
-      const file = new File([blob], `sourcetro-scan-${Date.now()}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+      const file = new File([blob], `sourcetro-scan-${Date.now()}.jpg`, {
+        type: "image/jpeg",
+        lastModified: Date.now(),
+      });
       stopLiteCamera(false);
-
-      if (replaceFiles(input, [file])) {
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-        return;
-      }
-
-      if (typeof state !== "undefined") {
-        if (state.sourcePhoto?.url?.startsWith("blob:")) URL.revokeObjectURL(state.sourcePhoto.url);
-        state.sourcePhoto = { name: file.name, url: URL.createObjectURL(file), memorySafe: true, compressedBytes: file.size };
-        state.sourceResult = null;
-        state.lastAIAnalysis = null;
-        if (typeof render === "function") render();
-        setTimeout(() => window.SourceTroDiscovery?.start?.(), 120);
-      }
+      commitSourcePhoto(file);
     } finally {
       if (canvas) {
         canvas.width = 1;
@@ -244,12 +254,15 @@
   }
 
   document.addEventListener("click", (event) => {
-    const input = event.target;
-    if (input?.id === "sourcePhotoInput" && MOBILE && !nativePickerBypass) {
+    const directInput = event.target?.id === "sourcePhotoInput" ? event.target : null;
+    const zoneInput = event.target?.closest?.(".source-upload")?.querySelector?.("#sourcePhotoInput") || null;
+    const sourceInput = directInput || zoneInput;
+
+    if (sourceInput && MOBILE && !nativePickerBypass) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      openLiteCamera(input);
+      openLiteCamera(sourceInput);
       return;
     }
 
@@ -277,6 +290,17 @@
       const compressed = await compressSequential(originals, config);
       originals.length = 0;
 
+      // Smart Scan owns its photo from this point forward. Do not rewrite the
+      // file input or dispatch another change event; that used to hand the same
+      // photo to both legacy app.js and the newer discovery scanner.
+      if (input.id === "sourcePhotoInput") {
+        const file = compressed[0];
+        if (file) commitSourcePhoto(file);
+        try { input.value = ""; } catch {}
+        compressed.length = 0;
+        return;
+      }
+
       if (replaceFiles(input, compressed)) {
         handled.add(input);
         input.disabled = false;
@@ -285,20 +309,6 @@
         return;
       }
 
-      if (input.id === "sourcePhotoInput" && typeof state !== "undefined") {
-        const file = compressed[0];
-        if (state.sourcePhoto?.url?.startsWith("blob:")) URL.revokeObjectURL(state.sourcePhoto.url);
-        state.sourcePhoto = {
-          name: file.name,
-          url: URL.createObjectURL(file),
-          memorySafe: true,
-          compressedBytes: file.size,
-        };
-        state.sourceResult = null;
-        state.lastAIAnalysis = null;
-        if (typeof render === "function") render();
-        setTimeout(() => window.SourceTroDiscovery?.start?.(), 120);
-      }
       compressed.length = 0;
     } finally {
       input.disabled = false;
@@ -306,9 +316,10 @@
   }, true);
 
   window.SourceTroMobileImage = {
-    build: "54",
+    build: "55",
     lowMemoryMode: LOW_MEMORY,
     cameraMode: MOBILE ? "memory-safe-stream" : "file-input",
+    smartScanOwner: "mobile-image-pipeline",
   };
 
   window.addEventListener("pagehide", () => {
