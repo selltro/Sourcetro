@@ -1,29 +1,29 @@
-const CACHE = "sourcetro-v54-low-memory";
-const APP_START = "./?app=1&v=54";
+const CACHE = "sourcetro-v55-fresh-navigation";
+const APP_START = "./?app=1&v=55";
 const SHELL = [
   "./",
   "./index.html",
   APP_START,
-  "./manifest.webmanifest?v=54",
-  "./styles.css?v=54",
-  "./mobile-navigation.css?v=54",
+  "./manifest.webmanifest?v=55",
+  "./styles.css?v=55",
+  "./mobile-navigation.css?v=55",
   "./assets/sourcetro-mark.svg",
-  "./trusted-session.js?v=54",
-  "./phone-stability-v52.js?v=54",
-  "./mobile-image-pipeline-v52.js?v=54",
-  "./app.js?v=54",
-  "./tro-chat.js?v=54",
-  "./memory-guard.js?v=54",
-  "./ebay-oauth.js?v=54",
-  "./ebay-import.js?v=54",
-  "./ebay-edit-safety.js?v=54",
-  "./seller-workflow.js?v=54",
-  "./discovery-scan-v52.js?v=54",
-  "./cloud-sync.js?v=54",
-  "./sync-recovery.js?v=54",
-  "./mobile-inventory-edit.js?v=54",
-  "./ui-stability.js?v=54",
-  "./pwa-update.js?v=54",
+  "./trusted-session.js?v=55",
+  "./phone-stability-v52.js?v=55",
+  "./mobile-image-pipeline-v52.js?v=55",
+  "./app.js?v=55",
+  "./tro-chat.js?v=55",
+  "./memory-guard.js?v=55",
+  "./ebay-oauth.js?v=55",
+  "./ebay-import.js?v=55",
+  "./ebay-edit-safety.js?v=55",
+  "./seller-workflow.js?v=55",
+  "./discovery-scan-v52.js?v=55",
+  "./cloud-sync.js?v=55",
+  "./sync-recovery.js?v=55",
+  "./mobile-inventory-edit.js?v=55",
+  "./ui-stability.js?v=55",
+  "./pwa-update.js?v=55",
 ];
 
 self.addEventListener("install", (event) => {
@@ -38,7 +38,9 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key.startsWith("sourcetro-") && key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(
+        keys.filter((key) => key.startsWith("sourcetro-") && key !== CACHE).map((key) => caches.delete(key)),
+      ))
       .then(() => self.clients.claim()),
   );
 });
@@ -65,26 +67,26 @@ async function cachedFirst(request, event) {
   return (await network) || Response.error();
 }
 
-async function navigationResponse(request, event) {
+async function navigationResponse(request) {
   const cache = await caches.open(CACHE);
-  const cached = await cache.match(request)
-    || await cache.match(APP_START)
-    || await cache.match("./index.html")
-    || await cache.match("./");
 
-  const network = fetch(request, { cache: "no-store" })
-    .then((response) => {
-      if (cacheable(response)) cache.put(request, response.clone()).catch(() => {});
-      return response;
-    })
-    .catch(() => null);
-
-  if (cached) {
-    event.waitUntil(network.then(() => undefined));
-    return cached;
+  // Navigations must be network-first. Older SourceTro workers returned their
+  // cached app shell before checking the network, which could trap an installed
+  // phone on an old build even when the URL requested a newer ?v= value.
+  try {
+    const response = await fetch(request, { cache: "no-store" });
+    if (cacheable(response)) {
+      cache.put(request, response.clone()).catch(() => {});
+      cache.put("./index.html", response.clone()).catch(() => {});
+    }
+    return response;
+  } catch {
+    return (await cache.match(request))
+      || (await cache.match(APP_START))
+      || (await cache.match("./index.html"))
+      || (await cache.match("./"))
+      || Response.error();
   }
-
-  return (await network) || Response.error();
 }
 
 self.addEventListener("fetch", (event) => {
@@ -94,7 +96,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (event.request.mode === "navigate") {
-    event.respondWith(navigationResponse(event.request, event));
+    event.respondWith(navigationResponse(event.request));
     return;
   }
 
