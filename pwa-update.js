@@ -1,5 +1,5 @@
 (() => {
-  const BUILD = "54";
+  const BUILD = "55";
   const SW_URL = `service-worker.js?v=${BUILD}`;
   const RELOAD_MARKER = `sourcetro_sw_reloaded_${BUILD}`;
 
@@ -46,9 +46,16 @@
     registerLatestWorker();
     setTimeout(refreshCloud, 900);
   });
+  window.addEventListener("pageshow", () => registerLatestWorker());
   window.addEventListener("focus", () => setTimeout(refreshCloud, 350));
-  window.addEventListener("online", () => setTimeout(refreshCloud, 350));
+  window.addEventListener("online", () => {
+    registerLatestWorker();
+    setTimeout(refreshCloud, 350);
+  });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") setTimeout(refreshCloud, 350);
+    if (document.visibilityState === "visible") {
+      registerLatestWorker();
+      setTimeout(refreshCloud, 350);
+    }
   });
 })();
