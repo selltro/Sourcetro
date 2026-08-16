@@ -3,6 +3,8 @@
   const EBAY_API = "https://sourcetro-ebay-test.nydia-burgos.workers.dev";
   const OWNER_KEY_STORAGE = "sourcetro_owner_key";
   const TRUSTED_OWNER_KEY = "sourcetro_trusted_owner_key";
+  const PRICE_CACHE_STORAGE = "sourcetro_price_cache_v1";
+  const PRICE_CACHE_TTL = 24 * 60 * 60 * 1000;
   const controllers = new Set();
   let scanRun = 0;
   let stateView = fresh();
@@ -54,6 +56,46 @@
     if (!a.length) return 0;
     const m = Math.floor(a.length / 2);
     return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+  }
+
+  function cacheKey(value = "") {
+    return String(value).trim().toLowerCase().replace(/\s+/g, " ").slice(0, 180);
+  }
+
+  function readPriceCache(value) {
+    const key = cacheKey(value);
+    if (!key) return null;
+    try {
+      const all = JSON.parse(localStorage.getItem(PRICE_CACHE_STORAGE) || "{}");
+      const record = all?.[key];
+      if (!record || Date.now() - Number(record.savedAt || 0) > PRICE_CACHE_TTL) return null;
+      return record;
+    } catch { return null; }
+  }
+
+  function savePriceCache(value) {
+    const key = cacheKey(value);
+    if (!key) return;
+    try {
+      const all = JSON.parse(localStorage.getItem(PRICE_CACHE_STORAGE) || "{}");
+      all[key] = {
+        savedAt: Date.now(),
+        ebay: stateView.eBay,
+        web: stateView.web,
+      };
+      const recent = Object.entries(all)
+        .sort((a, b) => Number(b[1]?.savedAt || 0) - Number(a[1]?.savedAt || 0))
+        .slice(0, 20);
+      localStorage.setItem(PRICE_CACHE_STORAGE, JSON.stringify(Object.fromEntries(recent)));
+    } catch {}
+  }
+
+  function showCachedPrices(value) {
+    const cached = readPriceCache(value);
+    if (!cached) return false;
+    if (Array.isArray(cached.ebay?.matches)) stateView.eBay = { ...stateView.eBay, ...cached.ebay };
+    if (Array.isArray(cached.web?.matches)) stateView.web = { ...stateView.web, ...cached.web };
+    return Boolean(stateView.eBay.matches.length || stateView.web.matches.length);
   }
 
   function matches() {
@@ -329,6 +371,7 @@
       stateView.eBay.error = error.message || "eBay search could not finish.";
       stateView.status.ebay = error.code === "TIMEOUT" ? "cancelled" : "error";
     }
+    savePriceCache(q);
     queueRender();
   }
 
@@ -347,6 +390,7 @@
       stateView.web.error = error.code === "TIMEOUT" ? "The public web was slow, so SourceTro stopped waiting. Your eBay results are still usable." : (error.status === 404 ? "Public-web discovery is not available on the current AI worker yet." : (error.message || "Public-web search is unavailable right now."));
       stateView.status.web = error.code === "TIMEOUT" ? "cancelled" : "error";
     }
+    savePriceCache(q);
     queueRender();
   }
 
@@ -365,20 +409,27 @@
       await identify(runId, imageData);
       imageData = "";
       if (runId !== scanRun || !stateView.identification) return;
+      const q = query();
+      const cachedPricesShown = showCachedPrices(q);
       const e = searchEbay(runId);
       const w = searchWeb(runId);
-      await Promise.race([e, new Promise((resolve) => setTimeout(resolve, 5000))]);
-      if (runId !== scanRun) return;
+      // Identification is the only blocking stage. Show any remembered prices
+      // immediately and let eBay/web refresh independently in the background.
       stateView.busy = false;
       if (state.sourceResult) {
         state.sourceResult.discoveryMatches = matches().slice(0, 20);
         state.sourceResult.discoveryAt = new Date().toISOString();
       }
-      if (typeof setTroState === "function") setTroState("success", "Scan results ready.", 1600);
+      if (typeof setTroState === "function") setTroState(
+        cachedPricesShown ? "success" : "working",
+        cachedPricesShown ? "Recent prices shown — refreshing now." : "Item identified — checking prices now.",
+        cachedPricesShown ? 1600 : 0,
+      );
       queueRender();
       Promise.allSettled([e, w]).then(() => {
         if (runId !== scanRun) return;
         if (state.sourceResult) state.sourceResult.discoveryMatches = matches().slice(0, 20);
+        if (typeof setTroState === "function") setTroState("success", "Comparable prices ready.", 1600);
         queueRender();
       });
     } catch (error) {
