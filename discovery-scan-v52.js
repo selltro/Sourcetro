@@ -349,10 +349,10 @@
       return true;
     } catch (fastError) {
       if (runId !== scanRun) return false;
-      if (fastError.status !== 404 && fastError.status !== 405) throw fastError;
+      if (![404, 405, 500, 502, 503].includes(Number(fastError.status))) throw fastError;
     }
 
-    const full = await personal("/analyze", body, 55000);
+    const full = await personal("/analyze", body, 90000);
     if (runId !== scanRun) return false;
     applyAnalysis(full.analysis || {});
     stateView.status.identify = "done";
