@@ -16,6 +16,7 @@
   function fresh() {
     return {
       busy: false,
+      manualQuery: "",
       identification: null,
       analysis: null,
       error: "",
@@ -192,10 +193,11 @@
       .st52-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(280px,.95fr);gap:16px;margin-top:18px}.st52-camera{min-height:280px;border:2px dashed #cbd8d4;border-radius:20px;background:#f8faf9;display:grid;place-items:center;overflow:hidden}.st52-camera img{width:100%;height:100%;min-height:280px;max-height:430px;object-fit:contain;background:#f2f5f4}.st52-empty{text-align:center;padding:26px;max-width:480px}.st52-lens{display:inline-flex!important;width:108px!important;height:108px!important;margin:0 auto 15px!important;transform:none!important;box-shadow:0 0 0 8px rgba(85,188,231,.12),0 0 26px rgba(85,188,231,.35)!important}.st52-empty h2{margin:0 0 7px;color:#173044}.st52-empty p{margin:0 0 16px;color:#6b7a83}.st52-buttons{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
       .st52-progress{background:#f5f8f7;border-radius:18px;padding:16px}.st52-progress h3{margin:0 0 4px;color:#173044}.st52-progress>p{margin:0;color:#6c7a83;font-size:13px}.st52-statuses{display:grid;gap:9px;margin-top:14px}.st52-status{display:grid;grid-template-columns:24px 1fr auto;gap:9px;align-items:center;background:#fff;border:1px solid #e5ebe8;border-radius:13px;padding:10px}.st52-dot{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#e0e6e4;font-size:11px;font-weight:900}.st52-status.working .st52-dot{background:#d6efe5;animation:st52Pulse 1s infinite}.st52-status.done .st52-dot{background:#d6efe5;color:#176344}.st52-status.error .st52-dot{background:#ffe1d7;color:#914730}.st52-status.cancelled .st52-dot{background:#eceff0;color:#64727a}.st52-status small{display:block;color:#6d7a83}.st52-status b{font-size:11px;color:#4e626e}@keyframes st52Pulse{0%,100%{transform:scale(.9);opacity:.65}50%{transform:scale(1.08);opacity:1}}
       .st52-progress-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.st52-note{font-size:12px;color:#6e7c84;margin:10px 0 0}.st52-error{padding:11px 12px;border-radius:12px;background:#fff0ea;color:#8a4431;margin-top:10px;font-size:13px}
+      .st52-fallback{display:grid;gap:9px;margin-top:12px;padding:13px;border-radius:14px;background:#fff;border:1px solid #dce6e2}.st52-fallback strong{color:#173044}.st52-fallback p{margin:0;color:#667781;font-size:13px}.st52-fallback-form{display:grid;grid-template-columns:1fr auto;gap:8px}.st52-fallback-form input{min-width:0;border:1px solid #cdd8d5;border-radius:12px;padding:12px 13px;font:inherit;background:#fff}.st52-fallback-form input:focus{outline:3px solid rgba(85,188,231,.2);border-color:#4c91b5}
       .st52-found{display:grid;grid-template-columns:1fr auto;gap:12px}.st52-found h2{margin:4px 0 5px;color:#173044}.st52-found p{margin:0;color:#667781}.st52-badge{padding:6px 10px;border-radius:999px;background:#eef6f2;color:#25624d;font-size:12px;font-weight:800}.st52-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.st52-tags span{padding:6px 9px;border-radius:999px;background:#f2f5f4;color:#586870;font-size:12px}
       .st52-price-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:13px}.st52-price{padding:14px;border-radius:15px;background:#f4f8f6}.st52-price small{display:block;color:#687982}.st52-price strong{font-size:24px;color:#173044}.st52-list{display:grid;gap:9px;margin-top:13px}.st52-match{display:grid;grid-template-columns:1fr auto;gap:12px;border:1px solid #e3e9e6;border-radius:14px;padding:12px}.st52-match a{display:block;color:#17445c;font-weight:750;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.st52-match small{display:block;color:#6d7b83;margin-top:4px}.st52-price-right{text-align:right}.st52-price-right strong{display:block;color:#173044}.st52-price-right span{font-size:11px;font-weight:800;color:#4d7565;text-transform:capitalize}.st52-muted{padding:16px;border:1px dashed #ccd8d4;border-radius:14px;color:#687982;text-align:center;margin-top:12px}
       .st52-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}.st52-unlock{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;border-color:#f0c9bd;background:linear-gradient(135deg,#fff8f4,#f4fbff)}.st52-unlock-icon{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#fff;font-size:22px;box-shadow:0 5px 18px rgba(22,40,58,.08)}.st52-unlock-copy h2{margin:3px 0 4px;color:#173044;font-size:22px}.st52-unlock-copy p{margin:0;color:#667781}.st52-unlock-form{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:9px}.st52-unlock-form input{min-width:0;border:1px solid #cdd8d5;border-radius:12px;padding:12px 13px;font:inherit;background:#fff}.st52-unlock-form input:focus{outline:3px solid rgba(85,188,231,.2);border-color:#4c91b5}
-      @media(max-width:820px){.st52-unlock{grid-template-columns:1fr}.st52-unlock-icon{display:none}.st52-unlock-form{grid-template-columns:1fr}.st52-grid{grid-template-columns:1fr}.st52-camera{min-height:240px}.st52-camera img{min-height:240px}.st52-price-grid{grid-template-columns:1fr}.st52-match{grid-template-columns:1fr}.st52-price-right{text-align:left}.st52-card{padding:16px}.st52-lens{width:100px!important;height:100px!important}}
+      @media(max-width:820px){.st52-unlock{grid-template-columns:1fr}.st52-unlock-icon{display:none}.st52-unlock-form,.st52-fallback-form{grid-template-columns:1fr}.st52-grid{grid-template-columns:1fr}.st52-camera{min-height:240px}.st52-camera img{min-height:240px}.st52-price-grid{grid-template-columns:1fr}.st52-match{grid-template-columns:1fr}.st52-price-right{text-align:left}.st52-card{padding:16px}.st52-lens{width:100px!important;height:100px!important}}
     `;
     document.head.appendChild(style);
   }
@@ -220,6 +222,11 @@
     return `<section class="st52-card"><div class="st52-head"><div><h2 style="margin:0;color:#173044;font-size:22px">Current prices found</h2><p>eBay results appear first. Public-web matches can continue afterward.</p></div></div>${s ? `<div class="st52-price-grid"><div class="st52-price"><small>Lowest found</small><strong>${money(s.low)}</strong></div><div class="st52-price"><small>Typical found</small><strong>${money(s.mid)}</strong></div><div class="st52-price"><small>Highest found</small><strong>${money(s.high)}</strong></div></div><p class="st52-note">These are current asking/retail prices, not guaranteed sold prices.</p>` : `<div class="st52-muted">${stateView.status.ebay === "working" || stateView.status.web === "working" ? "Price matches are still arriving…" : "No reliable priced matches were returned yet."}</div>`}</section>`;
   }
 
+  function fallbackMarkup() {
+    if (stateView.busy || stateView.identification || !stateView.error) return "";
+    return `<div class="st52-fallback"><strong>Search prices without waiting</strong><p>Type a few words, such as “Coach brown leather purse,” and SourceTro will check eBay and the web now.</p><form class="st52-fallback-form" id="st52FallbackForm"><input id="st52FallbackQuery" type="search" autocomplete="off" placeholder="What is the item?" aria-label="Item name for price search"><button class="button" type="submit">Find prices</button></form></div>`;
+  }
+
   function matchesMarkup() {
     const list = matches();
     return `<section class="st52-card"><h2 style="margin:0;color:#173044;font-size:22px">Matches from around the web</h2>${list.length ? `<div class="st52-list">${list.map((x) => {
@@ -241,7 +248,7 @@
       page.insertAdjacentElement("afterbegin", shell);
     }
     const hasPhoto = Boolean(state.sourcePhoto?.url);
-    shell.innerHTML = `${secureAccessMarkup()}<section class="st52-card"><div class="st52-head"><div><span class="st52-kicker">Smart Source Scan</span><h1>Should I buy this?</h1><p>Take one photo. Tro identifies the item first, then checks eBay and the public web. The app will not cancel identification after only a few seconds anymore.</p></div><div class="st52-head-actions"><button class="button secondary" type="button" data-st52="details">${detailMode ? "Hide details" : "More details"}</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div><div class="st52-grid"><div class="st52-camera">${hasPhoto ? `<img src="${esc(state.sourcePhoto.url)}" alt="Item being scanned">` : `<div class="st52-empty"><span class="tro-orb st52-lens" data-mood="ready"><i></i></span><h2>Scan an item</h2><p>Take one clear photo. You can cancel before or during the scan.</p><div class="st52-buttons"><button class="button large" type="button" data-st52="camera">Take picture</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div>`}</div><aside class="st52-progress"><h3>${stateView.busy ? "Tro is working…" : hasPhoto ? "Results" : "What Tro checks"}</h3><p>${stateView.busy ? "Identification may take a little longer on a phone, but SourceTro now lets it finish instead of stopping at 18 seconds." : "eBay and web search begin as soon as Tro has a reliable search phrase."}</p><div class="st52-statuses">${statusRow("identify", "Identify the item", "Brand, type, style and condition clues")}${statusRow("ebay", "Check eBay", "Current active listings and asking prices")}${statusRow("web", "Search the web", "Accessible resale, retail and specialty sites")}</div>${stateView.error ? `<div class="st52-error">${esc(stateView.error)}</div>` : ""}<div class="st52-progress-actions">${stateView.busy ? `<button class="button ghost" type="button" data-st52="stop">Cancel search</button>` : hasPhoto ? `<button class="button secondary" type="button" data-st52="again">Retake / scan another</button>` : ""}</div></aside></div></section>${identificationMarkup()}${hasPhoto ? pricesMarkup() : ""}${hasPhoto ? matchesMarkup() : ""}${stateView.identification ? `<section class="st52-card"><h2 style="margin:0;color:#173044;font-size:22px">Next step</h2><p style="color:#687781">Use the scan to start a listing, or scan another item.</p><div class="st52-actions"><button class="button large" type="button" data-st52="listing">Create listing →</button><button class="button secondary" type="button" data-st52="save">Save scan</button><button class="button ghost" type="button" data-st52="again">Scan another</button></div></section>` : ""}`;
+    shell.innerHTML = `${secureAccessMarkup()}<section class="st52-card"><div class="st52-head"><div><span class="st52-kicker">Smart Source Scan</span><h1>Should I buy this?</h1><p>Take one photo. Tro identifies the item, then checks eBay and the public web for comparable prices.</p></div><div class="st52-head-actions"><button class="button secondary" type="button" data-st52="details">${detailMode ? "Hide details" : "More details"}</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div><div class="st52-grid"><div class="st52-camera">${hasPhoto ? `<img src="${esc(state.sourcePhoto.url)}" alt="Item being scanned">` : `<div class="st52-empty"><span class="tro-orb st52-lens" data-mood="ready"><i></i></span><h2>Scan an item</h2><p>Take one clear photo. You can cancel before or during the scan.</p><div class="st52-buttons"><button class="button large" type="button" data-st52="camera">Take picture</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div>`}</div><aside class="st52-progress"><h3>${stateView.busy ? "Tro is working…" : hasPhoto ? "Results" : "What Tro checks"}</h3><p>${stateView.busy ? "Tro will stop the photo step if it takes too long, then let you search prices another way." : "eBay and web search begin as soon as Tro has a reliable search phrase."}</p><div class="st52-statuses">${statusRow("identify", "Identify the item", "Brand, type, style and condition clues")}${statusRow("ebay", "Check eBay", "Current active listings and asking prices")}${statusRow("web", "Search the web", "Accessible resale, retail and specialty sites")}</div>${stateView.error ? `<div class="st52-error">${esc(stateView.error)}</div>` : ""}${fallbackMarkup()}<div class="st52-progress-actions">${stateView.busy ? `<button class="button ghost" type="button" data-st52="stop">Cancel search</button>` : hasPhoto ? `<button class="button secondary" type="button" data-st52="again">Retake / scan another</button>` : ""}</div></aside></div></section>${identificationMarkup()}${hasPhoto ? pricesMarkup() : ""}${hasPhoto ? matchesMarkup() : ""}${stateView.identification ? `<section class="st52-card"><h2 style="margin:0;color:#173044;font-size:22px">Next step</h2><p style="color:#687781">Use the scan to start a listing, or scan another item.</p><div class="st52-actions"><button class="button large" type="button" data-st52="listing">Create listing →</button><button class="button secondary" type="button" data-st52="save">Save scan</button><button class="button ghost" type="button" data-st52="again">Scan another</button></div></section>` : ""}`;
   }
 
   function queueRender() {
@@ -319,7 +326,7 @@
 
   function query() {
     const a = stateView.analysis || {};
-    return String(a?.research?.ebay_sold_search || a?.listing?.seo_title || [a?.identification?.brand, a?.identification?.item_type, a?.identification?.style].filter(Boolean).join(" ") || [state?.sourceScan?.brand, state?.sourceScan?.itemName].filter(Boolean).join(" ")).trim().slice(0, 180);
+    return String(stateView.manualQuery || a?.research?.ebay_sold_search || a?.listing?.seo_title || [a?.identification?.brand, a?.identification?.item_type, a?.identification?.style].filter(Boolean).join(" ") || [state?.sourceScan?.brand, state?.sourceScan?.itemName].filter(Boolean).join(" ")).trim().slice(0, 180);
   }
 
   async function identify(runId, imageData) {
@@ -334,7 +341,7 @@
     };
 
     try {
-      const fast = await personal("/identify-fast", { image: imageData, notes: body.notes }, 22000);
+      const fast = await personal("/identify-fast", { image: imageData, notes: body.notes }, 18000);
       if (runId !== scanRun) return false;
       applyAnalysis(normalizeFast(fast));
       stateView.status.identify = "done";
@@ -342,10 +349,7 @@
       return true;
     } catch (fastError) {
       if (runId !== scanRun) return false;
-      if (fastError.status !== 404 && fastError.status !== 405 && fastError.status !== 500) {
-        // A real authorization/network error should not be hidden by the fallback.
-        if (fastError.status === 401 || /secure access/i.test(fastError.message || "")) throw fastError;
-      }
+      if (fastError.status !== 404 && fastError.status !== 405) throw fastError;
     }
 
     const full = await personal("/analyze", body, 55000);
@@ -394,6 +398,34 @@
     queueRender();
   }
 
+  function startManualPriceSearch(value) {
+    const phrase = String(value || "").trim().replace(/\s+/g, " ").slice(0, 180);
+    if (!phrase) {
+      document.querySelector("#st52FallbackQuery")?.focus();
+      return;
+    }
+    const runId = ++scanRun;
+    abortAll();
+    stateView.manualQuery = phrase;
+    stateView.error = "";
+    stateView.busy = false;
+    stateView.status.identify = "cancelled";
+    stateView.status.ebay = "idle";
+    stateView.status.web = "idle";
+    stateView.eBay = { matches: [], error: "" };
+    stateView.web = { matches: [], error: "", summary: "" };
+    const cachedPricesShown = showCachedPrices(phrase);
+    const e = searchEbay(runId);
+    const w = searchWeb(runId);
+    if (typeof setTroState === "function") setTroState(cachedPricesShown ? "success" : "working", cachedPricesShown ? "Recent prices shown — refreshing now." : "Checking comparable prices now.", cachedPricesShown ? 1600 : 0);
+    queueRender();
+    Promise.allSettled([e, w]).then(() => {
+      if (runId !== scanRun) return;
+      if (typeof setTroState === "function") setTroState("success", "Comparable prices ready.", 1600);
+      queueRender();
+    });
+  }
+
   async function start() {
     if (typeof state === "undefined" || state.route !== "source-scan" || !state.sourcePhoto?.url) return;
     const runId = ++scanRun;
@@ -435,7 +467,7 @@
     } catch (error) {
       if (runId !== scanRun) return;
       stateView.busy = false;
-      stateView.error = error.code === "TIMEOUT" ? "Tro is taking unusually long to identify this photo. Try a closer picture with the item filling the frame." : (error.message || "SourceTro could not finish this scan.");
+      stateView.error = error.code === "TIMEOUT" ? "The photo identification did not finish in 18 seconds. You can retake the photo or type the item name below to check prices now." : (error.message || "SourceTro could not finish this scan.");
       stateView.status.identify = error.code === "TIMEOUT" ? "cancelled" : "error";
       if (stateView.status.ebay === "idle") stateView.status.ebay = "cancelled";
       if (stateView.status.web === "idle") stateView.status.web = "cancelled";
@@ -520,6 +552,12 @@
     setTimeout(() => {
       if (state?.route === "source-scan" && state?.sourcePhoto?.url) start();
     }, 140);
+  });
+
+  document.addEventListener("submit", (event) => {
+    if (event.target?.id !== "st52FallbackForm") return;
+    event.preventDefault();
+    startManualPriceSearch(document.querySelector("#st52FallbackQuery")?.value || "");
   });
 
   document.addEventListener("cancel", (event) => {
