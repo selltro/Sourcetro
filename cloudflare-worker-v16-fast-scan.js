@@ -103,9 +103,9 @@ async function identifyFast(body, env, origin) {
   if (!image) return reply({ error: "Please include one item photograph." }, 400, origin);
 
   const { response, result } = await callOpenAI(env, {
-    model: "gpt-5-mini",
+    model: "gpt-4.1-mini",
     store: false,
-    max_output_tokens: 500,
+    max_output_tokens: 700,
     input: [
       { role: "developer", content: [{ type: "input_text", text: "You are SourceTro Fast Identify. Identify a resale item conservatively from one photo. Return only details visible or strongly supported. Do not invent brand, model, size, authenticity, or price. Build a short search phrase for current marketplace comparisons." }] },
       { role: "user", content: [
