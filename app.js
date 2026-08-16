@@ -160,6 +160,7 @@ const state = {
   inventory: loadJSON("sourcetro_inventory", []),
   marketplaceConnections: loadJSON("sourcetro_connections", {}),
   sourceScan: { ...sourceScanDefaults },
+  sourcePhotos: [],
   sourcePhoto: null,
   sourceResult: null,
   lastAIAnalysis: null,
@@ -825,7 +826,8 @@ async function analyzeSourceScan() {
   render();
 
   try {
-    const images = state.sourcePhoto ? [await imageUrlForAI(state.sourcePhoto.url)] : [];
+    const sourceSet = state.sourcePhotos?.length ? state.sourcePhotos : (state.sourcePhoto ? [state.sourcePhoto] : []);
+    const images = await Promise.all(sourceSet.slice(0, 4).map((photo) => imageUrlForAI(photo.url)));
     const verifiedPrices = [scan.verifiedLow, scan.verifiedMedian, scan.verifiedHigh].filter(Boolean).join(" / ");
     const notes = [
       scan.brand && `Seller-entered brand: ${scan.brand}`,
@@ -1122,7 +1124,9 @@ function useDemoScan() {
 }
 
 function resetSourceScan() {
-  if (state.sourcePhoto?.url?.startsWith("blob:") && !state.sourcePhoto.fromBatch) URL.revokeObjectURL(state.sourcePhoto.url);
+  const sourceSet = state.sourcePhotos?.length ? state.sourcePhotos : (state.sourcePhoto ? [state.sourcePhoto] : []);
+  sourceSet.forEach((photo) => { if (photo?.url?.startsWith("blob:") && !photo.fromBatch) URL.revokeObjectURL(photo.url); });
+  state.sourcePhotos = [];
   state.sourcePhoto = null;
   state.sourceScan = { ...sourceScanDefaults };
   state.sourceResult = null;
@@ -1196,7 +1200,8 @@ function scanToListing() {
     lowestPrice: Math.round(result.median * .75),
   };
   if (state.sourcePhoto) {
-    state.photos = [state.sourcePhoto];
+    state.photos = [...(state.sourcePhotos?.length ? state.sourcePhotos : [state.sourcePhoto])];
+    state.sourcePhotos = [];
     state.sourcePhoto = null;
   }
   state.measurementPhotos = [];
@@ -2219,14 +2224,21 @@ document.addEventListener("change", (event) => {
   if (event.target.id === "sourcePhotoInput") {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (state.sourcePhoto?.url?.startsWith("blob:") && !state.sourcePhoto.fromBatch) URL.revokeObjectURL(state.sourcePhoto.url);
-    state.sourcePhoto = { name: file.name, url: URL.createObjectURL(file) };
-    state.sourceResult = null;
-    state.lastAIAnalysis = null;
-    state.aiError = "";
+    if (!Array.isArray(state.sourcePhotos)) state.sourcePhotos = [];
+    if (state.sourcePhotos.length >= 12) { showToast("You can add up to 12 photos."); return; }
+    const photo = { name: file.name, url: URL.createObjectURL(file) };
+    const firstPhoto = state.sourcePhotos.length === 0;
+    state.sourcePhotos.push(photo);
+    state.sourcePhoto = state.sourcePhotos[0];
+    if (firstPhoto) {
+      state.sourceResult = null;
+      state.lastAIAnalysis = null;
+      state.aiError = "";
+    }
     render();
-    setTroState("listening", "Photo received — tap Analyze this photo now.", 1800);
-    showToast("Photo added. Tap the blue Analyze this photo now button.");
+    const remaining = Math.max(0, 6 - state.sourcePhotos.length);
+    setTroState("listening", remaining ? `Photo added — ${remaining} more required.` : "Six photos ready.", 1800);
+    showToast(remaining ? `Photo ${state.sourcePhotos.length} added. Add ${remaining} more.` : `${state.sourcePhotos.length} photos ready for your listing.`);
   }
 
   if (event.target.id === "batchPhotoInput") {
