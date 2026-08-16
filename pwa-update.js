@@ -1,5 +1,5 @@
 (() => {
-  const BUILD = "56";
+  const BUILD = "57";
   const SW_URL = `service-worker.js?v=${BUILD}`;
   const RELOAD_MARKER = `sourcetro_sw_reloaded_${BUILD}`;
 
