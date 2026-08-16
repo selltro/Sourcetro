@@ -341,7 +341,7 @@
     };
 
     try {
-      const fast = await personal("/identify-fast", { image: imageData, notes: body.notes }, 18000);
+      const fast = await personal("/identify-fast", { image: imageData, notes: body.notes }, 45000);
       if (runId !== scanRun) return false;
       applyAnalysis(normalizeFast(fast));
       stateView.status.identify = "done";
@@ -365,7 +365,7 @@
     if (!q || runId !== scanRun) return;
     stateView.status.ebay = "working"; queueRender();
     try {
-      const result = await ebay(`/ebay/research?q=${encodeURIComponent(q)}`, 10000);
+      const result = await ebay(`/ebay/research?q=${encodeURIComponent(q)}`, 25000);
       if (runId !== scanRun) return;
       stateView.eBay.matches = result.available && Array.isArray(result.samples) ? result.samples.map((x) => ({ source: "eBay", title: x.title || q, url: x.url || "", price: Number(x.price || 0), currency: x.currency || "USD", condition: x.condition || "Active listing", matchType: "likely", priceType: "active asking" })).filter((x) => x.price > 0) : [];
       stateView.eBay.error = result.available ? "" : (result.error || "eBay research is unavailable right now.");
@@ -384,7 +384,7 @@
     if (!q || runId !== scanRun) return;
     stateView.status.web = "working"; queueRender();
     try {
-      const result = await personal("/discover-web", { query: q, identification: stateView.identification || {}, sellerCountry: "US" }, 13000);
+      const result = await personal("/discover-web", { query: q, identification: stateView.identification || {}, sellerCountry: "US" }, 45000);
       if (runId !== scanRun) return;
       stateView.web.matches = Array.isArray(result.matches) ? result.matches.map((x) => ({ ...x, source: x.source || "Web", price: Number(x.price || 0), matchType: x.match_type || "similar", priceType: x.price_type || "current price" })).filter((x) => x.price > 0 && String(x.currency || "USD").toUpperCase() === "USD") : [];
       stateView.web.summary = result.summary || "";
@@ -467,7 +467,7 @@
     } catch (error) {
       if (runId !== scanRun) return;
       stateView.busy = false;
-      stateView.error = error.code === "TIMEOUT" ? "The photo identification did not finish in 18 seconds. You can retake the photo or type the item name below to check prices now." : (error.message || "SourceTro could not finish this scan.");
+      stateView.error = error.code === "TIMEOUT" ? "The photo identification did not finish in 45 seconds. You can retake the photo or type the item name below to check prices now." : (error.message || "SourceTro could not finish this scan.");
       stateView.status.identify = error.code === "TIMEOUT" ? "cancelled" : "error";
       if (stateView.status.ebay === "idle") stateView.status.ebay = "cancelled";
       if (stateView.status.web === "idle") stateView.status.web = "cancelled";
