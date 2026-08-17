@@ -135,11 +135,11 @@
     const remaining = Math.max(0, 6 - state.sourcePhotos.length);
     if (typeof setTroState === "function") setTroState(
       "listening",
-      firstPhoto ? "Photo ready — Tro is identifying it." : (remaining ? `Photo added — ${remaining} more required.` : "Six photos ready."),
+      firstPhoto ? "Photo ready — Tro is identifying it." : (remaining ? `Optional photo added — ${remaining} more for a full listing.` : "Full listing photo set ready."),
       1600,
     );
     if (typeof showToast === "function" && !firstPhoto) showToast(
-      remaining ? `Photo ${state.sourcePhotos.length} added. Add ${remaining} more.` : `${state.sourcePhotos.length} photos ready for your listing.`,
+      remaining ? `Optional photo ${state.sourcePhotos.length} added. ${remaining} more only for a full listing.` : `${state.sourcePhotos.length} photos ready for your listing.`,
     );
     if (firstPhoto) setTimeout(() => window.SourceTroDiscovery?.start?.(), 100);
     else if (state.sourcePhotos.length === 6) setTimeout(() => window.SourceTroDiscovery?.completePhotoSet?.(), 100);
@@ -334,7 +334,7 @@
   }, true);
 
   window.SourceTroMobileImage = {
-    build: "64",
+    build: "65",
     lowMemoryMode: LOW_MEMORY,
     cameraMode: MOBILE ? "memory-safe-stream" : "file-input",
     smartScanOwner: "mobile-image-pipeline",
