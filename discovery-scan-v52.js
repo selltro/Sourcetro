@@ -452,8 +452,9 @@
       const q = query();
       const cachedPricesShown = showCachedPrices(q);
       const e = searchEbay(runId);
-      const photoCount = Array.isArray(state.sourcePhotos) ? state.sourcePhotos.length : 1;
-      const w = photoCount >= 6 ? searchWeb(runId) : Promise.resolve();
+      // Start every comparison avenue from photo one. The search runs in the
+      // background so the seller can keep capturing the rest of the photo set.
+      const w = searchWeb(runId);
       // Identification is the only blocking stage. Show any remembered prices
       // immediately and let eBay/web refresh independently in the background.
       stateView.busy = false;
@@ -463,7 +464,7 @@
       }
       if (typeof setTroState === "function") setTroState(
         cachedPricesShown ? "success" : "working",
-        cachedPricesShown ? "Recent prices shown — refreshing now." : "Item identified — checking eBay now.",
+        cachedPricesShown ? "Recent prices shown — refreshing now." : "Item identified — checking eBay and the web now.",
         cachedPricesShown ? 1600 : 0,
       );
       queueRender();
