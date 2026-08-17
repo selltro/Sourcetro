@@ -255,7 +255,8 @@
     const photoPanel = hasPhoto
       ? `<div style="width:100%;padding:12px;display:grid;gap:10px"><img src="${esc(sourcePhotos[0].url)}" alt="Item being scanned"><div><strong style="color:#173044">${photoCount} of 6 required photos</strong><div style="height:8px;background:#e8eeeb;border-radius:999px;margin:7px 0;overflow:hidden"><i style="display:block;height:100%;width:${Math.min(100, photoCount / 6 * 100)}%;background:#ef765e"></i></div><div style="display:flex;gap:6px;flex-wrap:wrap">${photoChecklist}</div></div><button class="button ${photoCount >= 6 ? "secondary" : "large"}" type="button" data-st52="photo">${photoCount >= 6 ? "Add another photo" : `Take photo ${photoCount + 1} of 6`}</button><small style="color:#687781;text-align:center">You may add up to 12 photos.</small></div>`
       : `<div class="st52-empty"><span class="tro-orb st52-lens" data-mood="ready"><i></i></span><h2>Photograph the item</h2><p>SourceTro requires at least six photos for a complete listing.</p><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px">${photoChecklist}</div><div class="st52-buttons"><button class="button large" type="button" data-st52="camera">Take first picture</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div>`;
-    shell.innerHTML = `${secureAccessMarkup()}<section class="st52-card"><div class="st52-head"><div><span class="st52-kicker">Smart Source Scan</span><h1>Should I buy this?</h1><p>Take at least six guided photos. Tro can begin identification from the first clear photo while you finish the set.</p></div><div class="st52-head-actions"><button class="button secondary" type="button" data-st52="details">${detailMode ? "Hide details" : "More details"}</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div><div class="st52-grid"><div class="st52-camera">${photoPanel}</div><aside class="st52-progress"><h3>${stateView.busy ? "Tro is working…" : hasPhoto ? "Results" : "What Tro checks"}</h3><p>${photoCount < 6 ? `Add ${6 - photoCount} more photo${6 - photoCount === 1 ? "" : "s"} for a complete listing.` : "Your minimum six-photo set is complete."}</p><div class="st52-statuses">${statusRow("identify", "Identify the item", "Brand, type, style and condition clues")}${statusRow("ebay", "Check eBay", "Current active listings and asking prices")}${statusRow("web", "Search the web", "Accessible resale, retail and specialty sites")}</div>${stateView.error ? `<div class="st52-error">${esc(stateView.error)}</div>` : ""}${fallbackMarkup()}<div class="st52-progress-actions">${stateView.busy ? `<button class="button ghost" type="button" data-st52="stop">Cancel search</button>` : ""}</div></aside></div></section>${identificationMarkup()}${hasPhoto ? pricesMarkup() : ""}${hasPhoto ? matchesMarkup() : ""}${stateView.identification ? `<section class="st52-card"><h2 style="margin:0;color:#173044;font-size:22px">Next step</h2><p style="color:#687781">${photoCount >= 6 ? "Your photo set is ready to carry into the listing." : `Add ${6 - photoCount} more required photo${6 - photoCount === 1 ? "" : "s"} before creating the listing.`}</p><div class="st52-actions"><button class="button large" type="button" data-st52="listing" ${photoCount < 6 ? "disabled" : ""}>Create listing →</button><button class="button secondary" type="button" data-st52="save">Save scan</button><button class="button ghost" type="button" data-st52="again">Scan another</button></div></section>` : ""}`;
+    const webCanRetry = photoCount >= 6 && stateView.identification && ["cancelled", "error"].includes(stateView.status.web);
+    shell.innerHTML = `${secureAccessMarkup()}<section class="st52-card"><div class="st52-head"><div><span class="st52-kicker">Smart Source Scan</span><h1>Should I buy this?</h1><p>Take at least six guided photos. Tro can begin identification from the first clear photo while you finish the set.</p></div><div class="st52-head-actions"><button class="button secondary" type="button" data-st52="details">${detailMode ? "Hide details" : "More details"}</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div><div class="st52-grid"><div class="st52-camera">${photoPanel}</div><aside class="st52-progress"><h3>${stateView.busy ? "Tro is working…" : hasPhoto ? "Results" : "What Tro checks"}</h3><p>${photoCount < 6 ? `Add ${6 - photoCount} more photo${6 - photoCount === 1 ? "" : "s"} for a complete listing.` : "Your minimum six-photo set is complete."}</p><div class="st52-statuses">${statusRow("identify", "Identify the item", "Brand, type, style and condition clues")}${statusRow("ebay", "Check eBay", "Current active listings and asking prices")}${statusRow("web", "Search the web", "Accessible resale, retail and specialty sites")}</div>${stateView.error ? `<div class="st52-error">${esc(stateView.error)}</div>` : ""}${fallbackMarkup()}<div class="st52-progress-actions">${stateView.busy ? `<button class="button ghost" type="button" data-st52="stop">Cancel search</button>` : ""}${webCanRetry ? `<button class="button secondary" type="button" data-st52="retry-web">Retry web search</button>` : ""}</div></aside></div></section>${identificationMarkup()}${hasPhoto ? pricesMarkup() : ""}${hasPhoto ? matchesMarkup() : ""}${stateView.identification ? `<section class="st52-card"><h2 style="margin:0;color:#173044;font-size:22px">Next step</h2><p style="color:#687781">${photoCount >= 6 ? "Your photo set is ready to carry into the listing." : `Add ${6 - photoCount} more required photo${6 - photoCount === 1 ? "" : "s"} before creating the listing.`}</p><div class="st52-actions"><button class="button large" type="button" data-st52="listing" ${photoCount < 6 ? "disabled" : ""}>Create listing →</button><button class="button secondary" type="button" data-st52="save">Save scan</button><button class="button ghost" type="button" data-st52="again">Scan another</button></div></section>` : ""}`;
   }
 
   function queueRender() {
@@ -391,7 +392,7 @@
     if (!q || runId !== scanRun) return;
     stateView.status.web = "working"; queueRender();
     try {
-      const result = await personal("/discover-web", { query: q, identification: stateView.identification || {}, sellerCountry: "US" }, 15000);
+      const result = await personal("/discover-web", { query: q, identification: stateView.identification || {}, sellerCountry: "US" }, 60000);
       if (runId !== scanRun) return;
       stateView.web.matches = Array.isArray(result.matches) ? result.matches.map((x) => ({ ...x, source: x.source || "Web", price: Number(x.price || 0), matchType: x.match_type || "similar", priceType: x.price_type || "current price" })).filter((x) => x.price > 0 && String(x.currency || "USD").toUpperCase() === "USD") : [];
       stateView.web.summary = result.summary || "";
@@ -493,6 +494,13 @@
     searchWeb(runId).finally(() => queueRender());
   }
 
+  function retryWebSearch() {
+    if (!stateView.identification) return;
+    stateView.web.error = "";
+    stateView.status.web = "idle";
+    completePhotoSet();
+  }
+
   function openCamera() {
     const input = document.querySelector("#sourcePhotoInput");
     if (!input) return;
@@ -559,6 +567,7 @@
     if (action === "camera" || action === "photo") openCamera();
     if (action === "cancel") cancelAll();
     if (action === "stop") cancelSearch();
+    if (action === "retry-web") retryWebSearch();
     if (action === "again") again();
     if (action === "details") { detailMode = !detailMode; renderPanel(); }
     if (action === "save") save();
