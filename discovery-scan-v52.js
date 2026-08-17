@@ -391,7 +391,7 @@
     if (!q || runId !== scanRun) return;
     stateView.status.web = "working"; queueRender();
     try {
-      const result = await personal("/discover-web", { query: q, identification: stateView.identification || {}, sellerCountry: "US" }, 45000);
+      const result = await personal("/discover-web", { query: q, identification: stateView.identification || {}, sellerCountry: "US" }, 15000);
       if (runId !== scanRun) return;
       stateView.web.matches = Array.isArray(result.matches) ? result.matches.map((x) => ({ ...x, source: x.source || "Web", price: Number(x.price || 0), matchType: x.match_type || "similar", priceType: x.price_type || "current price" })).filter((x) => x.price > 0 && String(x.currency || "USD").toUpperCase() === "USD") : [];
       stateView.web.summary = result.summary || "";
@@ -451,7 +451,8 @@
       const q = query();
       const cachedPricesShown = showCachedPrices(q);
       const e = searchEbay(runId);
-      const w = searchWeb(runId);
+      const photoCount = Array.isArray(state.sourcePhotos) ? state.sourcePhotos.length : 1;
+      const w = photoCount >= 6 ? searchWeb(runId) : Promise.resolve();
       // Identification is the only blocking stage. Show any remembered prices
       // immediately and let eBay/web refresh independently in the background.
       stateView.busy = false;
@@ -461,7 +462,7 @@
       }
       if (typeof setTroState === "function") setTroState(
         cachedPricesShown ? "success" : "working",
-        cachedPricesShown ? "Recent prices shown — refreshing now." : "Item identified — checking prices now.",
+        cachedPricesShown ? "Recent prices shown — refreshing now." : "Item identified — checking eBay now.",
         cachedPricesShown ? 1600 : 0,
       );
       queueRender();
@@ -481,6 +482,15 @@
       if (typeof setTroState === "function") setTroState("ready", "Ready when you are.");
       queueRender();
     }
+  }
+
+  function completePhotoSet() {
+    if (!stateView.identification || stateView.status.web === "working" || stateView.status.web === "done") {
+      queueRender();
+      return;
+    }
+    const runId = scanRun;
+    searchWeb(runId).finally(() => queueRender());
   }
 
   function openCamera() {
@@ -594,7 +604,7 @@
   });
   if (typeof page !== "undefined" && page) observer.observe(page, { childList: true, subtree: false });
 
-  window.SourceTroDiscovery = { start, cancel: cancelAll, scanAnother: again, results: () => ({ ...stateView, matches: matches(), stats: stats() }) };
+  window.SourceTroDiscovery = { start, completePhotoSet, cancel: cancelAll, scanAnother: again, results: () => ({ ...stateView, matches: matches(), stats: stats() }) };
   ensureStyles();
   if (typeof state !== "undefined" && state.route === "source-scan") setTimeout(renderPanel, 50);
 })();
