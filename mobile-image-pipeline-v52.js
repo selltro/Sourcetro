@@ -110,21 +110,39 @@
 
   function commitSourcePhoto(file) {
     if (!file || typeof state === "undefined") return false;
-    if (state.sourcePhoto?.url?.startsWith("blob:") && !state.sourcePhoto?.fromBatch) {
-      URL.revokeObjectURL(state.sourcePhoto.url);
+    if (!Array.isArray(state.sourcePhotos)) state.sourcePhotos = [];
+    if (state.sourcePhotos.length >= 12) {
+      if (typeof showToast === "function") showToast("You can add up to 12 photos.");
+      return false;
     }
-    state.sourcePhoto = {
+
+    const firstPhoto = state.sourcePhotos.length === 0;
+    const photo = {
       name: file.name || "sourcetro-scan.jpg",
       url: URL.createObjectURL(file),
       memorySafe: true,
       compressedBytes: file.size || 0,
     };
-    state.sourceResult = null;
-    state.lastAIAnalysis = null;
-    if ("aiError" in state) state.aiError = "";
+    state.sourcePhotos.push(photo);
+    state.sourcePhoto = state.sourcePhotos[0];
+
+    if (firstPhoto) {
+      state.sourceResult = null;
+      state.lastAIAnalysis = null;
+      if ("aiError" in state) state.aiError = "";
+    }
     if (typeof render === "function") render();
-    if (typeof setTroState === "function") setTroState("listening", "Photo ready — Tro is identifying it.", 1600);
-    setTimeout(() => window.SourceTroDiscovery?.start?.(), 100);
+    const remaining = Math.max(0, 6 - state.sourcePhotos.length);
+    if (typeof setTroState === "function") setTroState(
+      "listening",
+      firstPhoto ? "Photo ready — Tro is identifying it." : (remaining ? `Photo added — ${remaining} more required.` : "Six photos ready."),
+      1600,
+    );
+    if (typeof showToast === "function" && !firstPhoto) showToast(
+      remaining ? `Photo ${state.sourcePhotos.length} added. Add ${remaining} more.` : `${state.sourcePhotos.length} photos ready for your listing.`,
+    );
+    if (firstPhoto) setTimeout(() => window.SourceTroDiscovery?.start?.(), 100);
+    else if (state.sourcePhotos.length === 6) setTimeout(() => window.SourceTroDiscovery?.completePhotoSet?.(), 100);
     return true;
   }
 
@@ -316,7 +334,7 @@
   }, true);
 
   window.SourceTroMobileImage = {
-    build: "55",
+    build: "62",
     lowMemoryMode: LOW_MEMORY,
     cameraMode: MOBILE ? "memory-safe-stream" : "file-input",
     smartScanOwner: "mobile-image-pipeline",
