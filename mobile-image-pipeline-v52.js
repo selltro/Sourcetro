@@ -334,7 +334,7 @@
   }, true);
 
   window.SourceTroMobileImage = {
-    build: "63",
+    build: "64",
     lowMemoryMode: LOW_MEMORY,
     cameraMode: MOBILE ? "memory-safe-stream" : "file-input",
     smartScanOwner: "mobile-image-pipeline",
