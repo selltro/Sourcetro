@@ -1,7 +1,8 @@
 (() => {
-  const BUILD = "61";
+  const BUILD = "66";
   const SW_URL = `service-worker.js?v=${BUILD}`;
   const RELOAD_MARKER = `sourcetro_sw_reloaded_${BUILD}`;
+  const BUY_CHECK_FIX_URL = `buy-check-one-photo-v66.js?v=${BUILD}`;
 
   function standalone() {
     return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
@@ -14,6 +15,15 @@
     url.searchParams.set("app", "1");
     url.searchParams.set("v", BUILD);
     history.replaceState(null, "", `${url.pathname}?${url.searchParams.toString()}${url.hash || "#dashboard"}`);
+  }
+
+  function loadBuyCheckFix() {
+    if (document.querySelector('#sourceTroBuyCheckFixV66')) return;
+    const script = document.createElement("script");
+    script.id = "sourceTroBuyCheckFixV66";
+    script.src = BUY_CHECK_FIX_URL;
+    script.async = false;
+    document.head.appendChild(script);
   }
 
   async function refreshCloud() {
@@ -41,12 +51,13 @@
     });
   }
 
+  loadBuyCheckFix();
   normalizeInstalledUrl();
   window.addEventListener("load", () => {
     registerLatestWorker();
     setTimeout(refreshCloud, 900);
   });
-  window.addEventListener("pageshow", () => registerLatestWorker());
+  window.addEventListener("pageshow", registerLatestWorker);
   window.addEventListener("focus", () => setTimeout(refreshCloud, 350));
   window.addEventListener("online", () => {
     registerLatestWorker();
