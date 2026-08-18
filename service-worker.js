@@ -1,5 +1,5 @@
-const CACHE = "sourcetro-v65-one-photo-buy-check";
-const APP_START = "./?app=1&v=65";
+const CACHE = "sourcetro-v66-one-photo-buy-check";
+const APP_START = "./?app=1&v=66";
 const SHELL = [
   "./",
   "./index.html",
@@ -26,6 +26,7 @@ const SHELL = [
   "./secure-access-v56.js?v=65",
   "./install-app.js?v=65",
   "./pwa-update.js?v=65",
+  "./buy-check-one-photo-v66.js?v=66",
 ];
 
 self.addEventListener("install", (event) => {
@@ -72,9 +73,8 @@ async function cachedFirst(request, event) {
 async function navigationResponse(request) {
   const cache = await caches.open(CACHE);
 
-  // Navigations must be network-first. Older SourceTro workers returned their
-  // cached app shell before checking the network, which could trap an installed
-  // phone on an old build even when the URL requested a newer ?v= value.
+  // Navigations are network-first so an installed phone cannot get trapped
+  // on an older SourceTro shell after a new Buy Check build is deployed.
   try {
     const response = await fetch(request, { cache: "no-store" });
     if (cacheable(response)) {
