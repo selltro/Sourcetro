@@ -251,6 +251,11 @@
   function renderReadinessCard() {
     const card = readinessCard();
     if (!card) return;
+    const ebayConnected = Boolean(window.SourceTroEbayConnection?.isConnected?.());
+    if (!ebayConnected) {
+      card.innerHTML = `<div class="st-seller-head"><div><h3>Connect eBay for publishing</h3><p>eBay price comparisons are working. Publishing needs a separate one-time permission from your eBay seller account.</p></div><span class="st-badge bad">Not connected</span></div><div class="st-actions"><button type="button" class="button st-mini" data-st-action="connect-ebay">Connect eBay</button></div><p class="st-note">You can save this listing as a draft now. After eBay is connected, SourceTro will keep the authorization renewed automatically.</p>`;
+      return;
+    }
     if (preflightBusy) {
       card.innerHTML = `<div class="st-seller-head"><div><h3>eBay readiness check</h3><p>Checking category, item specifics, business policies and ship-from location…</p></div><span class="st-badge">Checking</span></div>`;
       return;
@@ -294,6 +299,12 @@
 
   async function refreshPreflight(force = false) {
     if (!newListing() || !eBaySelected() || preflightBusy) return preflightResult;
+    if (!window.SourceTroEbayConnection?.isConnected?.()) {
+      preflightResult = { ok: false, needsConnection: true, error: "Connect eBay for publishing first." };
+      renderReadinessCard();
+      decoratePublishButton();
+      return preflightResult;
+    }
     captureVisibleListing();
     const signature = preflightSignature();
     if (!force && preflightResult && preflightKey === signature) return preflightResult;
@@ -332,8 +343,9 @@
     const button = document.querySelector('#page [data-action="publish-listing"]');
     if (!button) return;
     if (eBaySelected()) {
-      button.textContent = publishBusy ? "Publishing to eBay…" : "Publish to eBay →";
-      button.disabled = publishBusy;
+      const connected = Boolean(window.SourceTroEbayConnection?.isConnected?.());
+      button.textContent = !connected ? "Connect eBay before publishing" : (publishBusy ? "Publishing to eBay…" : "Publish to eBay →");
+      button.disabled = publishBusy || !connected;
       button.title = "Publishes only after SourceTro verifies the listing and you confirm.";
     } else {
       button.textContent = "Prepare listing →";
@@ -524,6 +536,12 @@
       const action = control.dataset.stAction;
       if (action === "research") researchCurrentListing();
       if (action === "preflight") refreshPreflight(true);
+      if (action === "connect-ebay") {
+        if (typeof storeListing === "function") storeListing("Draft");
+        if (typeof setRoute === "function") setRoute("marketplaces");
+        if (typeof showToast === "function") showToast("Draft saved. Connect eBay once for publishing.");
+        setTimeout(() => document.querySelector('[data-connect-market="eBay"]')?.click(), 180);
+      }
       if (action === "tro-title") applyTroField("title");
       if (action === "tro-description") applyTroField("description");
       if (action === "use-price") {
