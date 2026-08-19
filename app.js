@@ -1244,7 +1244,7 @@ function wizardHeader(step, title, copy) {
 
 function wizardFooter(nextLabel = "Continue", disableNext = false) {
   return `<div class="wizard-footer">
-    <button class="button ghost" data-action="wizard-back" ${state.wizardStep === 1 ? "disabled" : ""}>← Back</button>
+    <button class="button ghost" data-action="${state.wizardStep === 1 ? "listing-back-to-check" : "wizard-back"}">← ${state.wizardStep === 1 ? "Back to Buy Check" : "Back"}</button>
     <button class="button large" data-action="wizard-next" ${disableNext ? "disabled" : ""}>${nextLabel} →</button>
   </div>`;
 }
@@ -2026,6 +2026,15 @@ document.addEventListener("click", (event) => {
   }
   if (action === "reset-scan") { resetSourceScan(); render(); showToast("Started a clean sourcing scan."); }
   if (action === "reset-listing") { resetListing(); render(); showToast("Started a clean listing."); }
+  if (action === "listing-back-to-check") {
+    if (state.photos.length) {
+      state.sourcePhotos = [...state.photos];
+      state.sourcePhoto = state.sourcePhotos[0];
+    }
+    setRoute("source-scan");
+    showToast("Returned to your Buy Check. Your photos and results are saved.");
+    return;
+  }
   if (action === "wizard-back") { state.wizardStep = Math.max(1, state.wizardStep - 1); render(); }
   if (action === "wizard-next") { state.wizardStep = Math.min(5, state.wizardStep + 1); render(); }
   if (action === "analyze-measurements") { analyzeMeasurements(); return; }
