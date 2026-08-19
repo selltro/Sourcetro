@@ -142,7 +142,7 @@
       remaining ? `Optional photo ${state.sourcePhotos.length} added. ${remaining} more only for a full listing.` : `${state.sourcePhotos.length} photos ready for your listing.`,
     );
     if (firstPhoto) setTimeout(() => window.SourceTroDiscovery?.start?.(), 100);
-    else if (state.sourcePhotos.length === 6) setTimeout(() => window.SourceTroDiscovery?.completePhotoSet?.(), 100);
+    else setTimeout(() => window.SourceTroDiscovery?.refineLatest?.(), 100);
     return true;
   }
 
@@ -334,7 +334,7 @@
   }, true);
 
   window.SourceTroMobileImage = {
-    build: "65",
+    build: "66",
     lowMemoryMode: LOW_MEMORY,
     cameraMode: MOBILE ? "memory-safe-stream" : "file-input",
     smartScanOwner: "mobile-image-pipeline",
