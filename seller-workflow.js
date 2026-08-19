@@ -344,9 +344,9 @@
     if (!button) return;
     if (eBaySelected()) {
       const connected = Boolean(window.SourceTroEbayConnection?.isConnected?.());
-      button.textContent = !connected ? "Connect eBay before publishing" : (publishBusy ? "Publishing to eBay…" : "Publish to eBay →");
-      button.disabled = publishBusy || !connected;
-      button.title = "Publishes only after SourceTro verifies the listing and you confirm.";
+      button.textContent = !connected ? "Save listing without eBay →" : (publishBusy ? "Publishing to eBay…" : "Publish to eBay →");
+      button.disabled = publishBusy;
+      button.title = connected ? "Publishes only after SourceTro verifies the listing and you confirm." : "Saves the completed listing in SourceTro without publishing to eBay.";
     } else {
       button.textContent = "Prepare listing →";
       button.disabled = false;
@@ -556,7 +556,7 @@
     }
 
     const publish = event.target.closest?.('[data-action="publish-listing"]');
-    if (publish && newListing() && eBaySelected()) {
+    if (publish && newListing() && eBaySelected() && window.SourceTroEbayConnection?.isConnected?.()) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
