@@ -146,6 +146,27 @@
     return true;
   }
 
+  function commitListingPhoto(file) {
+    if (!file || typeof state === "undefined") return false;
+    if (!Array.isArray(state.photos)) state.photos = [];
+    if (state.photos.length >= 12) {
+      if (typeof showToast === "function") showToast("You can add up to 12 listing photos.");
+      return false;
+    }
+    state.photos.push({
+      name: file.name || "sourcetro-listing.jpg",
+      url: URL.createObjectURL(file),
+      memorySafe: true,
+      compressedBytes: file.size || 0,
+    });
+    if (typeof render === "function") render();
+    const remaining = Math.max(0, 6 - state.photos.length);
+    if (typeof showToast === "function") showToast(
+      remaining ? `Photo ${state.photos.length} saved. Add ${remaining} more.` : "Six listing photos are ready.",
+    );
+    return true;
+  }
+
   function cameraOverlay() {
     let overlay = document.querySelector("#sourceTroLiteCamera");
     if (overlay) return overlay;
@@ -156,7 +177,7 @@
     overlay.innerHTML = `
       <div class="st-lite-camera-card" role="dialog" aria-modal="true" aria-label="SourceTro camera">
         <div class="st-lite-camera-head">
-          <div><strong>Smart Scan camera</strong><small>Memory-safe phone capture</small></div>
+          <div><strong>SourceTro camera</strong><small>Memory-safe phone capture</small></div>
           <button type="button" data-lite-camera="cancel" aria-label="Close camera">×</button>
         </div>
         <video playsinline muted autoplay></video>
@@ -260,8 +281,10 @@
         type: "image/jpeg",
         lastModified: Date.now(),
       });
+      const targetId = input.id;
       stopLiteCamera(false);
-      commitSourcePhoto(file);
+      if (targetId === "photoInput") commitListingPhoto(file);
+      else commitSourcePhoto(file);
     } finally {
       if (canvas) {
         canvas.width = 1;
@@ -272,8 +295,8 @@
   }
 
   document.addEventListener("click", (event) => {
-    const directInput = event.target?.id === "sourcePhotoInput" ? event.target : null;
-    const zoneInput = event.target?.closest?.(".source-upload")?.querySelector?.("#sourcePhotoInput") || null;
+    const directInput = ["sourcePhotoInput", "photoInput"].includes(event.target?.id) ? event.target : null;
+    const zoneInput = event.target?.closest?.(".source-upload, .upload-zone")?.querySelector?.("#sourcePhotoInput, #photoInput") || null;
     const sourceInput = directInput || zoneInput;
 
     if (sourceInput && MOBILE && !nativePickerBypass) {
@@ -334,7 +357,7 @@
   }, true);
 
   window.SourceTroMobileImage = {
-    build: "66",
+    build: "70",
     lowMemoryMode: LOW_MEMORY,
     cameraMode: MOBILE ? "memory-safe-stream" : "file-input",
     smartScanOwner: "mobile-image-pipeline",
