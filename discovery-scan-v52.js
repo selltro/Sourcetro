@@ -639,6 +639,8 @@
   }
 
   function listing() {
+    const sourceSet = Array.isArray(state.sourcePhotos) && state.sourcePhotos.length ? state.sourcePhotos : (state.sourcePhoto ? [state.sourcePhoto] : []);
+    if (sourceSet.length) state.photos = [...sourceSet];
     if (!state.sourceResult && typeof buildSourceResult === "function" && stateView.analysis) {
       try { buildSourceResult(stateView.analysis); } catch { try { buildSourceResult(); } catch {} }
     }
