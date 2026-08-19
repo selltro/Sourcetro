@@ -12,6 +12,7 @@
   let detailMode = false;
   let cameraAwaiting = false;
   let cameraOpenedAt = 0;
+  let refinementAwaiting = false;
 
   function fresh() {
     return {
@@ -235,6 +236,41 @@
     }).join("")}</div>` : `<div class="st52-muted">${stateView.status.web === "working" ? "Public-web search is still working in the background…" : "No additional public-web matches were reliable enough to show."}</div>`}${stateView.web.error ? `<div class="st52-error">${esc(stateView.web.error)}</div>` : ""}<p class="st52-note">SourceTro can search accessible public pages and connected marketplace data; some sites block automated search.</p></section>`;
   }
 
+  function needsBetterIdentity() {
+    const id = stateView.identification || {};
+    const text = [id.brand, id.item_type, id.style, id.size].filter(Boolean).join(" ");
+    const electronics = /electronics|laptop|computer|tablet|phone|camera|remote|console/i.test(`${id.category || ""} ${id.item_type || ""}`);
+    const hasModelNumber = /[a-z]*\d{2,}[a-z0-9-]*/i.test(text);
+    return Boolean(electronics && !hasModelNumber);
+  }
+
+  function identityHelpMarkup() {
+    if (!stateView.identification || !needsBetterIdentity()) return "";
+    return `<section class="st52-card" style="border-color:#f2cbbf;background:#fff9f6"><span class="st52-kicker">One more clue needed</span><h2 style="margin:4px 0 6px;color:#173044;font-size:22px">Add the model-label photo</h2><p style="margin:0;color:#667781">The first photo identified the item, but the current price range is too broad for a reliable Buy/Pass decision. Photograph the model number, barcode, size tag, or identifying label and Tro will tighten the comparison automatically.</p><div class="st52-actions"><button class="button" type="button" data-st52="model-photo">Take model/label photo</button></div></section>`;
+  }
+
+  function decisionMarkup() {
+    if (!stateView.identification) return "";
+    const s = stats();
+    if (!s || !s.mid) return "";
+    if (needsBetterIdentity()) return `<section class="st52-card"><span class="st52-kicker">Buy decision</span><h2 style="margin:4px 0;color:#173044">WAIT FOR THE MODEL</h2><p style="color:#667781;margin:5px 0 0">Tro found prices, but they cover items that are too different. Add the model or label photo before relying on a maximum purchase price.</p></section>`;
+    const feeRate = Number(state?.sourceScan?.feeRate || 13.25);
+    const shipping = Number(state?.sourceScan?.shippingCost || 8.95);
+    const targetProfit = Number(state?.troFit?.minimumProfit || 15);
+    const maxBuy = Math.max(0, s.mid * (1 - feeRate / 100) - shipping - targetProfit);
+    const storePrice = Number(state?.sourceScan?.purchasePrice || 0);
+    const estimatedProfit = storePrice > 0 ? s.mid * (1 - feeRate / 100) - shipping - storePrice : 0;
+    let decision = "BUY AT OR BELOW";
+    let detail = `${money(maxBuy)} maximum purchase price to preserve about ${money(targetProfit)} profit.`;
+    if (storePrice > 0) {
+      if (storePrice <= maxBuy * .7) decision = "GREAT BUY";
+      else if (storePrice <= maxBuy) decision = "CONSIDER";
+      else decision = "PASS";
+      detail = `Store price ${money(storePrice)} · estimated profit ${money(estimatedProfit)} · target profit ${money(targetProfit)}.`;
+    }
+    return `<section class="st52-card" style="border-color:#cfe5dc"><span class="st52-kicker">Buy decision</span><h2 style="margin:4px 0;color:#173044;font-size:28px">${decision}${storePrice ? "" : ` ${money(maxBuy)}`}</h2><p style="color:#667781;margin:5px 0 12px">${detail}</p><form id="st52StorePriceForm" class="st52-fallback-form"><input id="st52StorePrice" type="number" min="0" step=".01" inputmode="decimal" value="${storePrice || ""}" placeholder="Store price" aria-label="Store price"><button class="button" type="submit">Calculate</button></form><p class="st52-note">Estimate uses the typical current price, ${feeRate}% fees, ${money(shipping)} shipping, and your TroFit profit goal.</p></section>`;
+  }
+
   function renderPanel() {
     if (typeof state === "undefined" || state.route !== "source-scan" || typeof page === "undefined" || !page) return;
     ensureStyles();
@@ -256,7 +292,7 @@
       ? `<div style="width:100%;padding:12px;display:grid;gap:10px"><img src="${esc(sourcePhotos[0].url)}" alt="Item being scanned"><div><strong style="color:#173044">Buy Check ready from ${photoCount} photo${photoCount === 1 ? "" : "s"}</strong><div style="height:8px;background:#e8eeeb;border-radius:999px;margin:7px 0;overflow:hidden"><i style="display:block;height:100%;width:100%;background:#ef765e"></i></div><div style="display:flex;gap:6px;flex-wrap:wrap">${photoChecklist}</div></div><button class="button secondary" type="button" data-st52="photo">Add an optional photo</button><small style="color:#687781;text-align:center">One photo is enough to evaluate. Add more only for labels, flaws, or a listing.</small></div>`
       : `<div class="st52-empty"><span class="tro-orb st52-lens" data-mood="ready"><i></i></span><h2>Photograph the item</h2><p>One clear photo is enough for a quick Buy Check.</p><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px">${photoChecklist}</div><div class="st52-buttons"><button class="button large" type="button" data-st52="camera">Take picture and check value</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div>`;
     const webCanRetry = hasPhoto && stateView.identification && ["cancelled", "error"].includes(stateView.status.web);
-    shell.innerHTML = `${secureAccessMarkup()}<section class="st52-card"><div class="st52-head"><div><span class="st52-kicker">Quick Buy Check</span><h1>Should I buy this?</h1><p>Take one clear photo. Tro identifies it and checks eBay plus the broader web while you keep shopping.</p></div><div class="st52-head-actions"><button class="button secondary" type="button" data-st52="details">${detailMode ? "Hide details" : "More details"}</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div><div class="st52-grid"><div class="st52-camera">${photoPanel}</div><aside class="st52-progress"><h3>${stateView.busy ? "Tro is working…" : hasPhoto ? "Buy Check results" : "What Tro checks"}</h3><p>${hasPhoto ? "Your one-photo evaluation is underway. Extra photos are optional." : "One clear photo starts the complete evaluation."}</p><div class="st52-statuses">${statusRow("identify", "Identify the item", "Brand, type, style and condition clues")}${statusRow("ebay", "Check eBay", "Current active listings and asking prices")}${statusRow("web", "Search the web", "Accessible resale, retail and specialty sites")}</div>${stateView.error ? `<div class="st52-error">${esc(stateView.error)}</div>` : ""}${fallbackMarkup()}<div class="st52-progress-actions">${stateView.busy ? `<button class="button ghost" type="button" data-st52="stop">Cancel search</button>` : ""}${webCanRetry ? `<button class="button secondary" type="button" data-st52="retry-web">Retry web search</button>` : ""}</div></aside></div></section>${identificationMarkup()}${hasPhoto ? pricesMarkup() : ""}${hasPhoto ? matchesMarkup() : ""}${stateView.identification ? `<section class="st52-card"><h2 style="margin:0;color:#173044;font-size:22px">Next step</h2><p style="color:#687781">${photoCount >= 6 ? "Your photo set is ready to carry into the listing." : `Your Buy Check is ready. Add ${6 - photoCount} more photo${6 - photoCount === 1 ? "" : "s"} only if you want to create the full listing.`}</p><div class="st52-actions"><button class="button large" type="button" data-st52="listing" ${photoCount < 6 ? "disabled" : ""}>Create listing →</button><button class="button secondary" type="button" data-st52="save">Save Buy Check</button><button class="button ghost" type="button" data-st52="again">Check another item</button></div></section>` : ""}`;
+    shell.innerHTML = `${secureAccessMarkup()}<section class="st52-card"><div class="st52-head"><div><span class="st52-kicker">Quick Buy Check</span><h1>Should I buy this?</h1><p>Take one clear photo. Tro identifies it and checks eBay plus the broader web while you keep shopping.</p></div><div class="st52-head-actions"><button class="button secondary" type="button" data-st52="details">${detailMode ? "Hide details" : "More details"}</button><button class="button ghost" type="button" data-st52="cancel">Cancel</button></div></div><div class="st52-grid"><div class="st52-camera">${photoPanel}</div><aside class="st52-progress"><h3>${stateView.busy ? "Tro is working…" : hasPhoto ? "Buy Check results" : "What Tro checks"}</h3><p>${hasPhoto ? "Your one-photo evaluation is underway. Extra photos are optional." : "One clear photo starts the complete evaluation."}</p><div class="st52-statuses">${statusRow("identify", "Identify the item", "Brand, type, style and condition clues")}${statusRow("ebay", "Check eBay", "Current active listings and asking prices")}${statusRow("web", "Search the web", "Accessible resale, retail and specialty sites")}</div>${stateView.error ? `<div class="st52-error">${esc(stateView.error)}</div>` : ""}${fallbackMarkup()}<div class="st52-progress-actions">${stateView.busy ? `<button class="button ghost" type="button" data-st52="stop">Cancel search</button>` : ""}${webCanRetry ? `<button class="button secondary" type="button" data-st52="retry-web">Retry web search</button>` : ""}</div></aside></div></section>${identificationMarkup()}${identityHelpMarkup()}${decisionMarkup()}${hasPhoto ? pricesMarkup() : ""}${hasPhoto ? matchesMarkup() : ""}${stateView.identification ? `<section class="st52-card"><h2 style="margin:0;color:#173044;font-size:22px">Next step</h2><p style="color:#687781">${photoCount >= 6 ? "Your photo set is ready to carry into the listing." : `Your Buy Check is ready. Add ${6 - photoCount} more photo${6 - photoCount === 1 ? "" : "s"} only if you want to create the full listing.`}</p><div class="st52-actions"><button class="button large" type="button" data-st52="listing" ${photoCount < 6 ? "disabled" : ""}>Create listing →</button><button class="button secondary" type="button" data-st52="save">Save Buy Check</button><button class="button ghost" type="button" data-st52="again">Check another item</button></div></section>` : ""}`;
   }
 
   function queueRender() {
@@ -265,9 +301,9 @@
     setTimeout(() => { renderQueued = false; renderPanel(); }, 35);
   }
 
-  async function smallImage() {
-    if (!state?.sourcePhoto?.url) throw new Error("Take a photo first.");
-    const r = await fetch(state.sourcePhoto.url);
+  async function smallImage(photo = state?.sourcePhoto) {
+    if (!photo?.url) throw new Error("Take a photo first.");
+    const r = await fetch(photo.url);
     if (!r.ok) throw new Error("SourceTro could not read that photo.");
     const blob = await r.blob();
     if (typeof createImageBitmap !== "function") {
@@ -502,6 +538,66 @@
     completePhotoSet();
   }
 
+  async function refineLatest() {
+    const photos = Array.isArray(state?.sourcePhotos) ? state.sourcePhotos : [];
+    const latest = photos[photos.length - 1];
+    if (!latest?.url || !stateView.identification) { queueRender(); return; }
+    const runId = ++scanRun;
+    abortAll();
+    stateView.busy = true;
+    stateView.error = "";
+    stateView.status.identify = "working";
+    stateView.status.ebay = "idle";
+    stateView.status.web = "idle";
+    queueRender();
+    try {
+      const imageData = await smallImage(latest);
+      if (runId !== scanRun) return;
+      const previous = stateView.analysis || {};
+      const priorId = previous.identification || {};
+      const priorText = [priorId.brand, priorId.item_type, priorId.style, priorId.size].filter(Boolean).join(" ");
+      const fast = await personal("/identify-fast", {
+        image: imageData,
+        notes: `This is an additional model, label, barcode, size, or detail photo for: ${priorText}. Use it to identify the exact model/style and improve the comparison search.`,
+      }, 45000);
+      if (runId !== scanRun) return;
+      const refined = normalizeFast(fast);
+      const refinedId = refined.identification || {};
+      const choose = (oldValue, newValue) => {
+        const oldText = String(oldValue || "").trim();
+        const newText = String(newValue || "").trim();
+        if (!newText) return oldText;
+        if (/\d/.test(newText) || newText.length > oldText.length) return newText;
+        return oldText || newText;
+      };
+      const mergedId = {};
+      ["brand", "item_type", "category", "color", "size", "style", "condition", "confidence"].forEach((key) => { mergedId[key] = choose(priorId[key], refinedId[key]); });
+      mergedId.visible_flaws = [...new Set([...(priorId.visible_flaws || []), ...(refinedId.visible_flaws || [])])];
+      const refinedQuery = [mergedId.brand, mergedId.item_type, mergedId.style, mergedId.size].filter(Boolean).join(" ").trim();
+      applyAnalysis({
+        ...previous,
+        ...refined,
+        identification: mergedId,
+        research: { ...(previous.research || {}), ...(refined.research || {}), ebay_sold_search: refinedQuery, search_keywords: refinedQuery ? [refinedQuery] : [] },
+        listing: { ...(previous.listing || {}), ...(refined.listing || {}), seo_title: refinedQuery.slice(0, 80) },
+      });
+      stateView.status.identify = "done";
+      stateView.eBay = { matches: [], error: "" };
+      stateView.web = { matches: [], error: "", summary: "" };
+      stateView.busy = false;
+      refinementAwaiting = false;
+      queueRender();
+      await Promise.allSettled([searchEbay(runId), searchWeb(runId)]);
+      if (runId === scanRun) queueRender();
+    } catch (error) {
+      if (runId !== scanRun) return;
+      stateView.busy = false;
+      stateView.status.identify = "done";
+      stateView.error = "Tro kept the original Buy Check because the extra photo could not be read. Try a closer, brighter label photo.";
+      queueRender();
+    }
+  }
+
   function openCamera() {
     const input = document.querySelector("#sourcePhotoInput");
     if (!input) return;
@@ -566,6 +662,7 @@
     event.preventDefault(); event.stopPropagation();
     const action = button.dataset.st52;
     if (action === "camera" || action === "photo") openCamera();
+    if (action === "model-photo") { refinementAwaiting = true; openCamera(); }
     if (action === "cancel") cancelAll();
     if (action === "stop") cancelSearch();
     if (action === "retry-web") retryWebSearch();
@@ -586,6 +683,14 @@
   });
 
   document.addEventListener("submit", (event) => {
+    if (event.target?.id === "st52StorePriceForm") {
+      event.preventDefault();
+      const value = Number(document.querySelector("#st52StorePrice")?.value || 0);
+      state.sourceScan.purchasePrice = value > 0 ? String(value) : "";
+      if (state.sourceResult) state.sourceResult.purchasePrice = value || 0;
+      queueRender();
+      return;
+    }
     if (event.target?.id !== "st52FallbackForm") return;
     event.preventDefault();
     startManualPriceSearch(document.querySelector("#st52FallbackQuery")?.value || "");
@@ -614,7 +719,7 @@
   });
   if (typeof page !== "undefined" && page) observer.observe(page, { childList: true, subtree: false });
 
-  window.SourceTroDiscovery = { start, completePhotoSet, cancel: cancelAll, scanAnother: again, results: () => ({ ...stateView, matches: matches(), stats: stats() }) };
+  window.SourceTroDiscovery = { start, refineLatest, completePhotoSet, cancel: cancelAll, scanAnother: again, results: () => ({ ...stateView, matches: matches(), stats: stats() }) };
   ensureStyles();
   if (typeof state !== "undefined" && state.route === "source-scan") setTimeout(renderPanel, 50);
 })();
