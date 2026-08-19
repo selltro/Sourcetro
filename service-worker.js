@@ -1,32 +1,31 @@
-const CACHE = "sourcetro-v66-one-photo-buy-check";
+const CACHE = "sourcetro-v66-accurate-buy-decision";
 const APP_START = "./?app=1&v=66";
 const SHELL = [
   "./",
   "./index.html",
   APP_START,
-  "./manifest.webmanifest?v=65",
-  "./styles.css?v=65",
-  "./mobile-navigation.css?v=65",
+  "./manifest.webmanifest?v=66",
+  "./styles.css?v=66",
+  "./mobile-navigation.css?v=66",
   "./assets/sourcetro-mark.svg",
-  "./trusted-session.js?v=65",
-  "./phone-stability-v52.js?v=65",
-  "./mobile-image-pipeline-v52.js?v=65",
-  "./app.js?v=65",
-  "./tro-chat.js?v=65",
-  "./memory-guard.js?v=65",
-  "./ebay-oauth.js?v=65",
-  "./ebay-import.js?v=65",
-  "./ebay-edit-safety.js?v=65",
-  "./seller-workflow.js?v=65",
-  "./discovery-scan-v52.js?v=65",
-  "./cloud-sync.js?v=65",
-  "./sync-recovery.js?v=65",
-  "./mobile-inventory-edit.js?v=65",
-  "./ui-stability.js?v=65",
-  "./secure-access-v56.js?v=65",
-  "./install-app.js?v=65",
-  "./pwa-update.js?v=65",
-  "./buy-check-one-photo-v66.js?v=66",
+  "./trusted-session.js?v=66",
+  "./phone-stability-v52.js?v=66",
+  "./mobile-image-pipeline-v52.js?v=66",
+  "./app.js?v=66",
+  "./tro-chat.js?v=66",
+  "./memory-guard.js?v=66",
+  "./ebay-oauth.js?v=66",
+  "./ebay-import.js?v=66",
+  "./ebay-edit-safety.js?v=66",
+  "./seller-workflow.js?v=66",
+  "./discovery-scan-v52.js?v=66",
+  "./cloud-sync.js?v=66",
+  "./sync-recovery.js?v=66",
+  "./mobile-inventory-edit.js?v=66",
+  "./ui-stability.js?v=66",
+  "./secure-access-v56.js?v=66",
+  "./install-app.js?v=66",
+  "./pwa-update.js?v=66",
 ];
 
 self.addEventListener("install", (event) => {
@@ -73,8 +72,9 @@ async function cachedFirst(request, event) {
 async function navigationResponse(request) {
   const cache = await caches.open(CACHE);
 
-  // Navigations are network-first so an installed phone cannot get trapped
-  // on an older SourceTro shell after a new Buy Check build is deployed.
+  // Navigations must be network-first. Older SourceTro workers returned their
+  // cached app shell before checking the network, which could trap an installed
+  // phone on an old build even when the URL requested a newer ?v= value.
   try {
     const response = await fetch(request, { cache: "no-store" });
     if (cacheable(response)) {
