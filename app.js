@@ -1208,9 +1208,9 @@ function scanToListing() {
   state.measurementResult = null;
   state.measurementError = "";
   state.generated = Boolean(aiListing?.seo_title && aiListing?.description);
-  state.wizardStep = state.generated ? 4 : (state.photos.length ? 2 : 1);
+  state.wizardStep = state.photos.length < 6 ? 1 : (state.generated ? 4 : 2);
   setRoute("new-listing");
-  showToast(state.generated ? "Tro’s SEO title and description are ready to review." : "Scan details carried into your listing. Nothing needs to be entered twice.");
+  showToast(state.photos.length < 6 ? `Buy Check carried over. Add ${6 - state.photos.length} more listing photo${6 - state.photos.length === 1 ? "" : "s"}.` : (state.generated ? "Tro’s SEO title and description are ready to review." : "Scan details carried into your listing. Nothing needs to be entered twice."));
 }
 
 function listingView() {
@@ -1249,8 +1249,11 @@ function wizardFooter(nextLabel = "Continue", disableNext = false) {
 }
 
 function photoStep() {
+  const listingPhotoGoal = 6;
+  const remainingPhotos = Math.max(0, listingPhotoGoal - state.photos.length);
   return `
-    ${wizardHeader(1, "Add your item photos", "Take or upload clear photos. You can add more than one angle.")}
+    ${wizardHeader(1, "Finish your listing photos", remainingPhotos ? `Your Buy Check photo is saved. Add ${remainingPhotos} more clear photo${remainingPhotos === 1 ? "" : "s"} for the complete listing.` : "Your complete listing photo set is ready.")}
+    <div class="measure-help"><span>${remainingPhotos ? state.photos.length : "✓"}</span><div><strong>${state.photos.length} of ${listingPhotoGoal} listing photos</strong><p>${remainingPhotos ? "Next: back, brand/model label, size or material label, detail, and any flaw." : "All recommended photo angles are covered. Continue when ready."}</p></div></div>
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="photoInput" accept="image/*" multiple capture="environment" aria-label="Upload item photos" />
       <div><span class="upload-icon">◎</span><h3>Take a photo or choose from your device</h3><p class="muted">Front, back, label, tag, details, and any flaws</p><span class="button secondary">Choose photos</span></div>
@@ -1261,7 +1264,7 @@ function photoStep() {
       <label class="check-pill"><input type="checkbox" checked /> Suggest best cover photo</label>
       <label class="check-pill"><input type="checkbox" /> Clean background</label>
     </div>
-    ${wizardFooter("Add measurements")}`;
+    ${wizardFooter(remainingPhotos ? `Add ${remainingPhotos} more photo${remainingPhotos === 1 ? "" : "s"}` : "Add measurements", remainingPhotos > 0)}`;
 }
 
 function measurementStep() {
