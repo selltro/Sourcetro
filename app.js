@@ -1199,8 +1199,9 @@ function scanToListing() {
     offerPrice: Math.round(result.median * .9),
     lowestPrice: Math.round(result.median * .75),
   };
-  if (state.sourcePhoto) {
-    state.photos = [...(state.sourcePhotos?.length ? state.sourcePhotos : [state.sourcePhoto])];
+  const carriedSourcePhotos = state.sourcePhotos?.length ? state.sourcePhotos : (state.sourcePhoto ? [state.sourcePhoto] : []);
+  if (carriedSourcePhotos.length) {
+    state.photos = [...carriedSourcePhotos];
     state.sourcePhotos = [];
     state.sourcePhoto = null;
   }
@@ -1255,8 +1256,8 @@ function photoStep() {
     ${wizardHeader(1, "Finish your listing photos", remainingPhotos ? `Your Buy Check photo is saved. Add ${remainingPhotos} more clear photo${remainingPhotos === 1 ? "" : "s"} for the complete listing.` : "Your complete listing photo set is ready.")}
     <div class="measure-help"><span>${remainingPhotos ? state.photos.length : "✓"}</span><div><strong>${state.photos.length} of ${listingPhotoGoal} listing photos</strong><p>${remainingPhotos ? "Next: back, brand/model label, size or material label, detail, and any flaw." : "All recommended photo angles are covered. Continue when ready."}</p></div></div>
     <div class="upload-zone" id="uploadZone">
-      <input type="file" id="photoInput" accept="image/*" multiple capture="environment" aria-label="Upload item photos" />
-      <div><span class="upload-icon">◎</span><h3>Take a photo or choose from your device</h3><p class="muted">Front, back, label, tag, details, and any flaws</p><span class="button secondary">Choose photos</span></div>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" aria-label="Take the next item photo" />
+      <div><span class="upload-icon">◎</span><h3>Take the next photo</h3><p class="muted">Front, back, label, tag, details, and any flaws</p><span class="button secondary">Take or choose photo</span></div>
     </div>
     <div class="photo-preview-grid">${state.photos.map((photo, index) => `<div class="photo-preview"><img src="${photo.url}" alt="Item photo ${index + 1}" /><button data-remove-photo="${index}" aria-label="Remove photo">×</button></div>`).join("")}</div>
     <div class="option-row">
