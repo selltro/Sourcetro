@@ -1211,7 +1211,7 @@ function scanToListing() {
   state.generated = Boolean(aiListing?.seo_title && aiListing?.description);
   state.wizardStep = state.photos.length < 6 ? 1 : (state.generated ? 4 : 2);
   setRoute("new-listing");
-  showToast(state.photos.length < 6 ? `Buy Check carried over. Add ${6 - state.photos.length} more listing photo${6 - state.photos.length === 1 ? "" : "s"}.` : (state.generated ? "Tro’s SEO title and description are ready to review." : "Scan details carried into your listing. Nothing needs to be entered twice."));
+  showToast(state.photos.length < 2 ? "Buy Check carried over. Add one more photo to continue." : (state.photos.length < 6 ? "Photos carried over. You can continue now; additional photos are optional." : (state.generated ? "Tro’s SEO title and description are ready to review." : "Scan details carried into your listing. Nothing needs to be entered twice.")));
 }
 
 function listingView() {
@@ -1250,11 +1250,13 @@ function wizardFooter(nextLabel = "Continue", disableNext = false) {
 }
 
 function photoStep() {
-  const listingPhotoGoal = 6;
-  const remainingPhotos = Math.max(0, listingPhotoGoal - state.photos.length);
+  const minimumPhotos = 2;
+  const recommendedPhotos = 6;
+  const neededToContinue = Math.max(0, minimumPhotos - state.photos.length);
+  const remainingRecommended = Math.max(0, recommendedPhotos - state.photos.length);
   return `
-    ${wizardHeader(1, "Finish your listing photos", remainingPhotos ? `Your Buy Check photo is saved. Add ${remainingPhotos} more clear photo${remainingPhotos === 1 ? "" : "s"} for the complete listing.` : "Your complete listing photo set is ready.")}
-    <div class="measure-help"><span>${remainingPhotos ? state.photos.length : "✓"}</span><div><strong>${state.photos.length} of ${listingPhotoGoal} listing photos</strong><p>${remainingPhotos ? "Next: back, brand/model label, size or material label, detail, and any flaw." : "All recommended photo angles are covered. Continue when ready."}</p></div></div>
+    ${wizardHeader(1, "Finish your listing photos", neededToContinue ? `Your Buy Check photo is saved. Add ${neededToContinue} more photo to continue.` : (remainingRecommended ? `You can continue now with ${state.photos.length} photos. Add more only if you want a stronger listing.` : "Your complete recommended photo set is ready."))}
+    <div class="measure-help"><span>${state.photos.length >= minimumPhotos ? "✓" : state.photos.length}</span><div><strong>${state.photos.length} photo${state.photos.length === 1 ? "" : "s"} added · 2 minimum</strong><p>${remainingRecommended ? `Six are recommended for front, back, label, details, and flaws, but they are not required.` : "All recommended photo angles are covered. Continue when ready."}</p></div></div>
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="photoInput" accept="image/*" capture="environment" aria-label="Take the next item photo" />
       <div><span class="upload-icon">◎</span><h3>Take the next photo</h3><p class="muted">Front, back, label, tag, details, and any flaws</p><span class="button secondary">Take or choose photo</span></div>
@@ -1265,7 +1267,7 @@ function photoStep() {
       <label class="check-pill"><input type="checkbox" checked /> Suggest best cover photo</label>
       <label class="check-pill"><input type="checkbox" /> Clean background</label>
     </div>
-    ${wizardFooter(remainingPhotos ? `Add ${remainingPhotos} more photo${remainingPhotos === 1 ? "" : "s"}` : "Add measurements", remainingPhotos > 0)}`;
+    ${wizardFooter(neededToContinue ? "Add 1 more photo" : "Continue to measurements", neededToContinue > 0)}`;
 }
 
 function measurementStep() {
