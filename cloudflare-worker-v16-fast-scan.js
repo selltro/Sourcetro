@@ -251,16 +251,27 @@ function hostOf(value) {
   try { return new URL(String(value)).hostname.replace(/^www\./, "").toLowerCase(); } catch { return ""; }
 }
 
+function parseDiscoveryJson(value = "") {
+  const text = String(value || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  try { return JSON.parse(text); } catch {}
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+  }
+  return null;
+}
+
 async function discoverWeb(body, env, origin) {
   const image = String(body.image || "").trim();
   const query = String(body.query || "").trim().slice(0, 300);
   let identification = "{}";
   try { identification = JSON.stringify(body.identification && typeof body.identification === "object" ? body.identification : {}).slice(0, 3000); } catch {}
   if (!image && !query) return reply({ error: "A photo or search phrase is required for discovery." }, 400, origin);
-  const userContent = [{ type: "input_text", text: `Find current public web pages offering this resale item or close comparables. Search phrase: ${query || "Use photo"}. Identification hints: ${identification}. Seller country: ${String(body.sellerCountry || "US").slice(0,20)}. Search accessible marketplaces, retailers, resale/vintage shops, brand and specialty sites. Prioritize current visible USD prices. Do not invent price, URL, brand, availability, or sold status. Classify each match exact, likely, or similar. Return at most 10 useful priced matches.` }];
+  const userContent = [{ type: "input_text", text: `Find current public web pages offering this resale item or close comparables. Search phrase: ${query || "Use photo"}. Identification hints: ${identification}. Seller country: ${String(body.sellerCountry || "US").slice(0,20)}. Search accessible marketplaces, retailers, resale/vintage shops, brand and specialty sites. Prioritize current visible USD prices. Do not invent price, URL, brand, availability, or sold status. Classify each match exact, likely, or similar. Return at most 6 useful priced matches.` }];
   if (image) userContent.push({ type: "input_image", image_url: image, detail: "low" });
   const { response, result } = await callOpenAI(env, {
-    model: "gpt-5-mini", store: false, max_output_tokens: 1500, tools: [{ type: "web_search" }],
+    model: "gpt-4.1-mini", store: false, max_output_tokens: 3200, tools: [{ type: "web_search" }],
     input: [{ role: "developer", content: [{ type: "input_text", text: "You are SourceTro Discovery. Use web search for real current pages and prices. Be conservative and never fabricate." }] }, { role: "user", content: userContent }],
     text: { format: { type: "json_schema", name: "sourcetro_web_discovery", strict: true, schema: {
       type: "object", additionalProperties: false,
@@ -270,13 +281,29 @@ async function discoverWeb(body, env, origin) {
       }, required: ["query", "summary", "matches"]
     } } },
   });
-  if (!response.ok) return reply({ error: "Tro could not complete broad web discovery right now." }, 502, origin);
+  if (!response.ok) {
+    console.error(JSON.stringify({
+      event: "sourcetro_web_discovery_openai_error",
+      upstreamStatus: response.status,
+      code: result?.error?.code || "",
+      type: result?.error?.type || "",
+      message: String(result?.error?.message || "OpenAI rejected the web-search request.").slice(0, 500),
+    }));
+    return reply({ error: `Broader web search was rejected by the search service (${response.status}).` }, 502, origin);
+  }
   const text = outputText(result);
-  if (!text) return reply({ error: "Tro did not return web discovery results." }, 502, origin);
-  const parsed = JSON.parse(text);
+  if (!text) {
+    console.error(JSON.stringify({ event: "sourcetro_web_discovery_empty", status: result?.status || "unknown", incomplete: result?.incomplete_details || null }));
+    return reply({ error: "The broader web search finished without usable results. Please retry." }, 502, origin);
+  }
+  const parsed = parseDiscoveryJson(text);
+  if (!parsed || !Array.isArray(parsed.matches)) {
+    console.error(JSON.stringify({ event: "sourcetro_web_discovery_invalid_json", status: result?.status || "unknown", preview: text.slice(0, 300) }));
+    return reply({ error: "The broader web search returned an unreadable result. Please retry." }, 502, origin);
+  }
   const sources = extractWebSources(result);
   const sourceHosts = new Set(sources.map(hostOf).filter(Boolean));
-  const matches = (Array.isArray(parsed.matches) ? parsed.matches : []).filter((x) => Number(x?.price) > 0).filter((x) => String(x.currency || "").toUpperCase() === "USD").filter((x) => /^https?:\/\//i.test(String(x.url || ""))).slice(0,10).map((x) => ({ ...x, price: Number(Number(x.price).toFixed(2)), currency: "USD", source_verified: sourceHosts.size ? sourceHosts.has(hostOf(x.url)) : false }));
+  const matches = parsed.matches.filter((x) => Number(x?.price) > 0).filter((x) => String(x.currency || "").toUpperCase() === "USD").filter((x) => /^https?:\/\//i.test(String(x.url || ""))).slice(0,6).map((x) => ({ ...x, price: Number(Number(x.price).toFixed(2)), currency: "USD", source_verified: sourceHosts.size ? sourceHosts.has(hostOf(x.url)) : false }));
   return reply({ ok: true, query: String(parsed.query || query), summary: String(parsed.summary || ""), matches, sources, searchedPublicWeb: true, priceMeaning: "current asking/retail prices unless source explicitly states otherwise", usage: result.usage || null }, 200, origin);
 }
 
@@ -290,7 +317,7 @@ export default {
     if (url.pathname === "/sync" && request.method === "POST") return handleSyncPost(request, env, origin);
 
     if (request.method === "GET") {
-      return reply({ ok: true, service: "SourceTro Personal API", openaiConnected: Boolean(env.OPENAI_API_KEY), ownerProtection: Boolean(env.SOURCETRO_OWNER_KEY), cloudSyncReady: Boolean(env.SYNC_KV), troChatReady: Boolean(env.OPENAI_API_KEY && env.SOURCETRO_OWNER_KEY), smartDiscoveryReady: Boolean(env.OPENAI_API_KEY && env.SOURCETRO_OWNER_KEY), fastIdentifyReady: Boolean(env.OPENAI_API_KEY && env.SOURCETRO_OWNER_KEY), transport: "secure-body-v18-fast-identify-discovery", message: "SourceTro secure AI, Tro chat, fast identification, and Smart Discovery are ready." }, 200, origin);
+      return reply({ ok: true, service: "SourceTro Personal API", openaiConnected: Boolean(env.OPENAI_API_KEY), ownerProtection: Boolean(env.SOURCETRO_OWNER_KEY), cloudSyncReady: Boolean(env.SYNC_KV), troChatReady: Boolean(env.OPENAI_API_KEY && env.SOURCETRO_OWNER_KEY), smartDiscoveryReady: Boolean(env.OPENAI_API_KEY && env.SOURCETRO_OWNER_KEY), fastIdentifyReady: Boolean(env.OPENAI_API_KEY && env.SOURCETRO_OWNER_KEY), transport: "secure-body-v19-web-discovery-recovery", message: "SourceTro secure AI, Tro chat, fast identification, and Smart Discovery are ready." }, 200, origin);
     }
 
     const allowed = ["/identify-fast", "/analyze", "/measure", "/chat", "/discover-web"];
