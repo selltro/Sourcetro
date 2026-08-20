@@ -237,7 +237,14 @@
 
   async function beginEbayConnect() {
     if (!ownerKey()) {
-      if (typeof showToast === "function") showToast("Restore SourceTro secure access on this device first.");
+      try {
+        sessionStorage.setItem("sourcetro_return_after_unlock", "marketplaces");
+      } catch {}
+      if (typeof showToast === "function") showToast("Unlock SourceTro once, then eBay will connect.");
+      location.hash = "source-scan";
+      setTimeout(() => {
+        document.querySelector("#sourceTroOwnerKey")?.focus();
+      }, 250);
       return;
     }
     if (ebayStatus.connected) {
@@ -287,6 +294,21 @@
   }
 
   document.addEventListener("click", (event) => {
+    const action = event.target.closest?.("[data-action]")?.dataset?.action;
+    if (action === "unlock-live-ai") {
+      let returnAfterUnlock = "";
+      try { returnAfterUnlock = sessionStorage.getItem("sourcetro_return_after_unlock") || ""; } catch {}
+      if (returnAfterUnlock === "marketplaces") {
+        setTimeout(() => {
+          if (!ownerKey()) return;
+          try { sessionStorage.removeItem("sourcetro_return_after_unlock"); } catch {}
+          location.hash = "marketplaces";
+          setTimeout(() => beginEbayConnect(), 180);
+        }, 80);
+      }
+      return;
+    }
+
     const button = event.target.closest?.('[data-connect-market="eBay"]');
     if (!button) return;
     event.preventDefault();
