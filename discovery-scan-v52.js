@@ -393,10 +393,20 @@
       return true;
     } catch (fastError) {
       if (runId !== scanRun) return false;
-      if (![404, 405, 500, 502, 503].includes(Number(fastError.status))) throw fastError;
+      // The fast route is an optimization, not a requirement. If it times out,
+      // is unavailable, or the AI service returns a temporary server error,
+      // continue automatically with the full photo analysis instead of
+      // cancelling the Buy Check and leaving price searches waiting.
+      const fallbackStatuses = [404, 405, 408, 429, 500, 502, 503, 504];
+      const canFallback = fastError?.code === "TIMEOUT"
+        || fallbackStatuses.includes(Number(fastError?.status))
+        || !fastError?.status;
+      if (!canFallback) throw fastError;
+      if (typeof setTroState === "function") setTroState("working", "Quick check was slow — continuing with full photo analysis…");
+      queueRender();
     }
 
-    const full = await personal("/analyze", body, 90000);
+    const full = await personal("/analyze", body, 75000);
     if (runId !== scanRun) return false;
     applyAnalysis(full.analysis || {});
     stateView.status.identify = "done";
