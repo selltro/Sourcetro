@@ -2,7 +2,7 @@
   // Keep the installed-app updater on the same release as index.html,
   // manifest.webmanifest, and service-worker.js. A stale value here forced
   // phones back onto an older URL and could keep an installed PWA on old code.
-  const BUILD = "76";
+  const BUILD = "77";
   const SW_URL = `service-worker.js?v=${BUILD}`;
   const RELOAD_MARKER = `sourcetro_sw_reloaded_${BUILD}`;
   const BUY_CHECK_FIX_URL = `buy-check-one-photo-v66.js?v=${BUILD}`;
