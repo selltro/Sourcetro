@@ -10,6 +10,31 @@
     <meta name="apple-mobile-web-app-title" content="SourceTro" />
     <meta name="description" content="SourceTro helps resellers source smarter, list faster, stay organized, and sell more—from source to sold." />
     <title>SourceTro — From Source to Sold</title>
+    <script>
+      (() => {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get("repair") !== "77") return;
+        const removeOldWorkers = "serviceWorker" in navigator
+          ? navigator.serviceWorker.getRegistrations().then((registrations) => Promise.all(
+            registrations
+              .filter((registration) => registration.scope.includes("/Sourcetro/"))
+              .map((registration) => registration.unregister()),
+          ))
+          : Promise.resolve();
+        const removeOldCaches = "caches" in window
+          ? caches.keys().then((keys) => Promise.all(
+            keys.filter((key) => key.startsWith("sourcetro-")).map((key) => caches.delete(key)),
+          ))
+          : Promise.resolve();
+        Promise.allSettled([removeOldWorkers, removeOldCaches]).then(() => {
+          url.searchParams.delete("repair");
+          url.searchParams.set("app", "1");
+          url.searchParams.set("v", "77");
+          url.searchParams.set("recovered", "1");
+          window.location.replace(`${url.pathname}?${url.searchParams.toString()}${url.hash || "#marketplaces"}`);
+        });
+      })();
+    </script>
     <link rel="icon" href="assets/sourcetro-mark.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/sourcetro-mark.svg" />
     <link rel="manifest" href="manifest.webmanifest?v=77" />
